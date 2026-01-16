@@ -165,7 +165,16 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
                     child: _buildDropdown(
                       label: "Rank",
                       value: _selectedRank,
-                      items: ['Cadet', 'Corporal', 'Sergeant', 'Under Officer'],
+                      items: [
+                        'Cadet',
+                        'Lance Corporal',
+                        'Corporal',
+                        'Sergeant',
+                        'Company Quartermaster Sergeant',
+                        'Company Sergeant Major',
+                        'Under Officer',
+                        'Senior Under Officer',
+                      ],
                       onChanged: (val) => setState(() => _selectedRank = val!),
                     ),
                   ),

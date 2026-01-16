@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ncc_cadet/models/camp_model.dart';
 import 'package:ncc_cadet/models/user_model.dart';
 import 'package:ncc_cadet/officer/add_edit_camp_screen.dart';
+import 'package:ncc_cadet/officer/camp_participants_screen.dart';
 import 'package:ncc_cadet/services/auth_service.dart';
 import 'package:ncc_cadet/services/camp_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
@@ -215,6 +216,16 @@ class _OfficerCampListScreenState extends State<OfficerCampListScreen> {
         trailing: PopupMenuButton(
           itemBuilder: (context) => [
             const PopupMenuItem(
+              value: 'participants',
+              child: Row(
+                children: [
+                  Icon(Icons.people_outline, size: 16),
+                  SizedBox(width: 8),
+                  Text("Participants"),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
               value: 'edit',
               child: Row(
                 children: [
@@ -236,7 +247,14 @@ class _OfficerCampListScreenState extends State<OfficerCampListScreen> {
             ),
           ],
           onSelected: (value) async {
-            if (value == 'edit') {
+            if (value == 'participants') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CampParticipantsScreen(camp: camp),
+                ),
+              );
+            } else if (value == 'edit') {
               Navigator.push(
                 context,
                 MaterialPageRoute(

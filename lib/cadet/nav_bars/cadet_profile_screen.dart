@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 import 'package:ncc_cadet/providers/user_provider.dart';
 
 import 'package:ncc_cadet/common/shimmer_loading.dart';
+import 'package:ncc_cadet/cadet/cadet_documents_screen.dart';
 
 class CadetProfileScreen extends StatelessWidget {
   const CadetProfileScreen({super.key});
@@ -147,6 +148,17 @@ class CadetProfileScreen extends StatelessWidget {
                       Row(
                         children: [
                           _buildDetailItem(
+                            "Rank",
+                            profile.rank,
+                            Icons.military_tech_outlined,
+                            isFullWidth: true,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          _buildDetailItem(
                             "Year",
                             profile.year,
                             Icons.calendar_today,
@@ -159,7 +171,7 @@ class CadetProfileScreen extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 10),
                       Row(
                         children: [
                           _buildDetailItem(

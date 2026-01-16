@@ -20,6 +20,7 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
   List<Map<String, dynamic>> _allCadets = [];
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isSUO = false;
 
   @override
   void initState() {
@@ -30,16 +31,30 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      // 1. Get all cadets in the organization
+      // 1. Get current user to check for SUO restrictions
+      final currentUser = await _authService.getUserProfile();
+      final isSUO = currentUser?.rank == 'Senior Under Officer';
+      final suoYear = currentUser?.year;
+
+      if (mounted) setState(() => _isSUO = isSUO);
+
+      // 2. Get all cadets in the organization
       final cadetsSnapshot = await _authService
           .getCadetsStream(widget.parade.organizationId)
           .first;
 
       final cadets = cadetsSnapshot.docs
           .where((doc) {
-            if (widget.parade.targetYear == 'All') return true;
             final data = doc.data() as Map<String, dynamic>;
-            return data['year'] == widget.parade.targetYear;
+            final cadetYear = data['year'] ?? '';
+
+            // SUO Restriction: Only their own year
+            if (isSUO && suoYear != null && cadetYear != suoYear) {
+              return false;
+            }
+
+            if (widget.parade.targetYear == 'All') return true;
+            return cadetYear == widget.parade.targetYear;
           })
           .map((doc) {
             final data = doc.data() as Map<String, dynamic>;
@@ -54,7 +69,7 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
           })
           .toList();
 
-      // 2. Get existing attendance for this parade
+      // 3. Get existing attendance for this parade
       final attendanceSnapshot = await _attendanceService
           .getAttendanceForParade(widget.parade.id)
           .first;
@@ -72,6 +87,9 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
       }
 
       _allCadets = cadets;
+
+      // Force single view if SUO (modify widget state logic or handle in build)
+      // I can't modify widget.parade.targetYear, but I can check currentUser in build.
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -126,8 +144,8 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // If targetYear is specific (not 'All'), show simple list
-    if (widget.parade.targetYear != 'All') {
+    // If targetYear is specific (not 'All'), OR user is SUO (restricted view), show simple list
+    if (widget.parade.targetYear != 'All' || _isSUO) {
       return Scaffold(
         backgroundColor: AppTheme.lightGrey,
         appBar: _buildAppBar(),
@@ -139,7 +157,7 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
       );
     }
 
-    // If targetYear is 'All', show Tabs
+    // If targetYear is 'All' AND not SUO, show Tabs
     return DefaultTabController(
       length: 4,
       child: Scaffold(

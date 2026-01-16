@@ -9,9 +9,11 @@ import 'package:ncc_cadet/cadet/cadet_complaint_screen.dart';
 import 'package:ncc_cadet/cadet/cadet_leave_history_screen.dart';
 import 'package:ncc_cadet/cadet/nav_bars/cadet_notification_screen.dart';
 import 'package:ncc_cadet/cadet/nav_bars/cadet_profile_screen.dart';
+import 'package:ncc_cadet/officer/manage_cadets_page.dart'; // Import ManageCadetsPage
 import 'package:ncc_cadet/providers/user_provider.dart';
 import 'package:ncc_cadet/utils/theme.dart';
 import 'package:ncc_cadet/common/shimmer_loading.dart';
+import 'package:ncc_cadet/officer/mark_attendance_selection_screen.dart';
 
 class CadetDashboardScreen extends StatelessWidget {
   const CadetDashboardScreen({super.key});
@@ -441,6 +443,22 @@ class CadetDashboardScreen extends StatelessWidget {
                     const CadetComplaintScreen(),
                     5,
                   ),
+                  if (user?.rank == 'Senior Under Officer')
+                    _buildAction(
+                      context,
+                      "Mark Attendance",
+                      Icons.check_circle_outline,
+                      const MarkAttendanceSelectionScreen(),
+                      6,
+                    ),
+                  if (user?.rank == 'Senior Under Officer')
+                    _buildAction(
+                      context,
+                      "Manage Cadets",
+                      Icons.people_outline,
+                      const ManageCadetsPage(),
+                      7,
+                    ),
                 ],
               ),
             ],

@@ -46,4 +46,31 @@ class CampService {
   Future<void> deleteCamp(String id) async {
     await _db.doc(id).delete();
   }
+
+  // --- Participation ---
+
+  // Update User Response
+  Future<void> updateCampResponse({
+    required String campId,
+    required String cadetId,
+    required String cadetName,
+    required String response, // 'Going' or 'Not Going'
+  }) async {
+    await _db.doc(campId).collection('responses').doc(cadetId).set({
+      'cadetId': cadetId,
+      'cadetName': cadetName,
+      'response': response,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // Get All Responses for a Camp (For Officer)
+  Stream<QuerySnapshot> getCampResponses(String campId) {
+    return _db.doc(campId).collection('responses').snapshots();
+  }
+
+  // Get Specific User Response (For Cadet UI)
+  Stream<DocumentSnapshot> getUserResponse(String campId, String cadetId) {
+    return _db.doc(campId).collection('responses').doc(cadetId).snapshots();
+  }
 }

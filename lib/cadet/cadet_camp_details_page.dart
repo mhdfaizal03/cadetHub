@@ -105,6 +105,7 @@ class _CampCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
+      // ... decoration ...
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
@@ -123,11 +124,13 @@ class _CampCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                camp.name,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  camp.name,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               if (camp.targetYear != 'All')
@@ -165,9 +168,144 @@ class _CampCard extends StatelessWidget {
             "Details:",
             camp.description,
           ),
+          const Divider(height: 24),
+          _buildParticipationSection(context),
         ],
       ),
     );
+  }
+
+  Widget _buildParticipationSection(BuildContext context) {
+    final user = Provider.of<UserProvider>(context).user;
+    if (user == null) return const SizedBox.shrink();
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: CampService().getUserResponse(camp.id, user.uid),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        }
+
+        String? currentResponse;
+        if (snapshot.hasData && snapshot.data!.exists) {
+          final data = snapshot.data!.data() as Map<String, dynamic>;
+          currentResponse = data['response'];
+        }
+
+        return Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () => _updateResponse(context, user, 'Going'),
+                icon: currentResponse == 'Going'
+                    ? const Icon(
+                        Icons.check_circle,
+                        color: Colors.white,
+                        size: 18,
+                      )
+                    : const Icon(
+                        Icons.check_circle_outline,
+                        color: Colors.green,
+                        size: 18,
+                      ),
+                label: Text(
+                  "Going",
+                  style: TextStyle(
+                    color: currentResponse == 'Going'
+                        ? Colors.white
+                        : Colors.green,
+                    fontWeight: currentResponse == 'Going'
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: currentResponse == 'Going'
+                      ? Colors.green
+                      : Colors.white,
+                  elevation: 0,
+                  side: const BorderSide(color: Colors.green),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () => _updateResponse(context, user, 'Not Going'),
+                icon: currentResponse == 'Not Going'
+                    ? const Icon(Icons.cancel, color: Colors.white, size: 18)
+                    : const Icon(
+                        Icons.cancel_outlined,
+                        color: Colors.red,
+                        size: 18,
+                      ),
+                label: Text(
+                  "Not Going",
+                  style: TextStyle(
+                    color: currentResponse == 'Not Going'
+                        ? Colors.white
+                        : Colors.red,
+                    fontWeight: currentResponse == 'Not Going'
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: currentResponse == 'Not Going'
+                      ? Colors.red
+                      : Colors.white,
+                  elevation: 0,
+                  side: const BorderSide(color: Colors.red),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _updateResponse(
+    BuildContext context,
+    dynamic
+    user, // Using dynamic to avoid circular dependency if UserModel isn't imported here, but it is imported in file.
+    String response,
+  ) async {
+    try {
+      await CampService().updateCampResponse(
+        campId: camp.id,
+        cadetId: user.uid,
+        cadetName: user.name,
+        response: response,
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Marked as $response"),
+            duration: const Duration(seconds: 1),
+            backgroundColor: Colors.black87,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   Widget _buildInfoRow(IconData icon, String label, String value) {

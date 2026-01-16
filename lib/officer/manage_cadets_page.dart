@@ -2,6 +2,7 @@ import 'package:ncc_cadet/models/user_model.dart';
 import 'package:flutter/material.dart';
 import 'package:ncc_cadet/officer/addedit_cadet_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:ncc_cadet/officer/officer_cadet_records_screen.dart';
 import 'package:ncc_cadet/services/auth_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
 
@@ -16,52 +17,63 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
   final AuthService _authService = AuthService();
   String _searchQuery = "";
 
+  // ... imports
+
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 4,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF9F9F9),
-        appBar: AppBar(
-          foregroundColor: Colors.white,
-          backgroundColor: AppTheme.navyBlue,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(
-              Icons.keyboard_arrow_left,
-              color: Colors.white,
-              size: 28,
+    return FutureBuilder<UserModel?>(
+      future: _authService.getUserProfile(),
+      builder: (context, userSnapshot) {
+        if (userSnapshot.connectionState == ConnectionState.waiting) {
+          // We need to wait for user profile before building Scaffold because of TabController length
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final user = userSnapshot.data;
+        if (user == null) {
+          return const Scaffold(body: Center(child: Text("Profile error")));
+        }
+
+        // Determine if restricted (SUO)
+        final bool isCadet = user.role == 'cadet';
+        final String? cadetYear = isCadet ? user.year : null;
+
+        return DefaultTabController(
+          length: isCadet ? 1 : 4,
+          child: Scaffold(
+            backgroundColor: const Color(0xFFF9F9F9),
+            appBar: AppBar(
+              foregroundColor: Colors.white,
+              backgroundColor: AppTheme.navyBlue,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(
+                  Icons.keyboard_arrow_left,
+                  color: Colors.white,
+                  size: 28,
+                ),
+                onPressed: () => Navigator.pop(context),
+              ),
+              title: const Text("Manage Cadets"),
+              bottom: isCadet
+                  ? null // No tabs for specific year view
+                  : TabBar(
+                      labelColor: AppTheme.accentBlue,
+                      unselectedLabelColor: Colors.grey,
+                      indicatorColor: AppTheme.accentBlue,
+                      // isScrollable: true,
+                      tabs: const [
+                        Tab(text: "All"),
+                        Tab(text: "1st Year"),
+                        Tab(text: "2nd Year"),
+                        Tab(text: "3rd Year"),
+                      ],
+                    ),
             ),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: const Text("Manage Cadets"),
-          bottom: TabBar(
-            labelColor: AppTheme.accentBlue,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: AppTheme.accentBlue,
-            // isScrollable: true,
-            tabs: const [
-              Tab(text: "All"),
-              Tab(text: "1st Year"),
-              Tab(text: "2nd Year"),
-              Tab(text: "3rd Year"),
-            ],
-          ),
-        ),
-        body: FutureBuilder<UserModel?>(
-          future: _authService.getUserProfile(),
-          builder: (context, userSnapshot) {
-            if (userSnapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            final officer = userSnapshot.data;
-            if (officer == null) {
-              return const Center(child: Text("Officer profile not found"));
-            }
-
-            return StreamBuilder<QuerySnapshot>(
-              stream: _authService.getCadetsStream(officer.organizationId),
+            body: StreamBuilder<QuerySnapshot>(
+              stream: _authService.getCadetsStream(user.organizationId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -75,6 +87,11 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
 
                 var allDocs = snapshot.data!.docs;
 
+                if (isCadet) {
+                  // Show only single list for their year
+                  return _buildCadetList(allDocs, cadetYear ?? "All");
+                }
+
                 return TabBarView(
                   children: [
                     _buildCadetList(allDocs, "All"),
@@ -84,21 +101,23 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
                   ],
                 );
               },
-            );
-          },
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            // Navigate to add/edit page with null data (Add mode)
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const AddEditCadetPage()),
-            );
-          },
-          backgroundColor: AppTheme.navyBlue,
-          child: const Icon(Icons.add, color: Colors.white, size: 30),
-        ),
-      ),
+            ),
+            floatingActionButton: FloatingActionButton(
+              onPressed: () {
+                // Navigate to add/edit page with null data (Add mode)
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AddEditCadetPage(),
+                  ),
+                );
+              },
+              backgroundColor: AppTheme.navyBlue,
+              child: const Icon(Icons.add, color: Colors.white, size: 30),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -227,16 +246,17 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
                   style: const TextStyle(color: Colors.grey, fontSize: 13),
                 ),
                 const SizedBox(height: 10),
-                Row(
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
                   children: [
                     _buildBadge(rank, Colors.grey.shade100, Colors.black54),
-                    const SizedBox(width: 8),
                     _buildBadge(
                       status,
                       isActive ? Colors.green.shade50 : Colors.orange.shade50,
                       isActive ? Colors.green : Colors.orange,
                     ),
-                    const SizedBox(width: 8),
                     _buildBadge(
                       year,
                       Colors.blue.shade50,
@@ -249,6 +269,24 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
           ),
           Row(
             children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.folder_shared_outlined,
+                  size: 20,
+                  color: Colors.blue,
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => OfficerCadetRecordsScreen(
+                        cadetId: uid,
+                        cadetName: name,
+                      ),
+                    ),
+                  );
+                },
+              ),
               IconButton(
                 icon: const Icon(
                   Icons.edit_outlined,
