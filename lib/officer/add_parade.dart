@@ -22,7 +22,7 @@ class _AddEditParadeScreenState extends State<AddEditParadeScreen> {
   final _descriptionController = TextEditingController();
 
   bool _isLoading = false;
-  String _targetYear = 'All'; // Default to All
+  String _targetYear = '1st Year'; // Default to All
   // Removed static primaryColor, using AppTheme now
 
   @override
@@ -148,15 +148,20 @@ class _AddEditParadeScreenState extends State<AddEditParadeScreen> {
     return Scaffold(
       backgroundColor: AppTheme.lightGrey,
       appBar: AppBar(
+        iconTheme: const IconThemeData(color: Colors.white),
         leading: IconButton(
-          icon: const Icon(Icons.chevron_left, color: Colors.black, size: 28),
+          icon: const Icon(
+            Icons.keyboard_arrow_left,
+            color: Colors.white,
+            size: 28,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(widget.parade != null ? "Edit Parade" : "Add Parade"),
         centerTitle: true,
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: AppTheme.navyBlue,
+        foregroundColor: Colors.white,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Divider(height: 1, color: Colors.grey.shade200),
@@ -200,7 +205,7 @@ class _AddEditParadeScreenState extends State<AddEditParadeScreen> {
                         ),
                       ),
                     ),
-                    items: ['All', '1st Year', '2nd Year', '3rd Year']
+                    items: ['1st Year', '2nd Year', '3rd Year']
                         .map(
                           (label) => DropdownMenuItem(
                             value: label,

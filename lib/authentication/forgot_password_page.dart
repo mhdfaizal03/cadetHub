@@ -66,7 +66,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       backgroundColor: AppTheme.navyBlue,
       appBar: AppBar(
         forceMaterialTransparency: true,
-        leading: const BackButton(color: Colors.white),
+        leading: IconButton(
+          icon: const Icon(Icons.keyboard_arrow_left, color: Colors.white),
+          onPressed: () => Navigator.maybePop(context),
+        ),
       ),
       body: Center(
         child: SingleChildScrollView(

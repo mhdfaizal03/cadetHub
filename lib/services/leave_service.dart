@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:ncc_cadet/models/leave_model.dart';
+import 'package:ncc_cadet/models/notification_model.dart';
+import 'package:ncc_cadet/services/notification_service.dart';
 
 class LeaveService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -13,8 +15,42 @@ class LeaveService {
   }
 
   // Update Leave Status
-  Future<void> updateLeaveStatus(String id, String status) async {
-    await _leaves.doc(id).update({'status': status});
+  Future<void> updateLeaveStatus(
+    String id,
+    String status, {
+    String? rejectionReason,
+  }) async {
+    final Map<String, dynamic> data = {'status': status};
+    if (rejectionReason != null) {
+      data['rejectionReason'] = rejectionReason;
+    }
+
+    // update
+    await _leaves.doc(id).update(data);
+
+    // Notify Cadet
+    try {
+      final doc = await _leaves.doc(id).get();
+      if (doc.exists) {
+        final leaveData = doc.data() as Map<String, dynamic>;
+        final cadetId = leaveData['cadetId'];
+
+        await NotificationService().sendNotification(
+          NotificationModel(
+            id: '',
+            title: 'Leave Request $status',
+            message:
+                'Your leave request has been $status.${status == 'Rejected' && rejectionReason != null ? " Reason: $rejectionReason" : ""}',
+            type: 'cadet',
+            targetId: cadetId,
+            createdAt: DateTime.now(),
+          ),
+        );
+      }
+    } catch (e) {
+      // Ignore notification errors
+      print("Error sending notification: $e");
+    }
   }
 
   // Get Pending Leaves for Organization

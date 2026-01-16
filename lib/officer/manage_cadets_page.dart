@@ -27,7 +27,11 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
           backgroundColor: AppTheme.navyBlue,
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.chevron_left, color: Colors.white, size: 28),
+            icon: const Icon(
+              Icons.keyboard_arrow_left,
+              color: Colors.white,
+              size: 28,
+            ),
             onPressed: () => Navigator.pop(context),
           ),
           title: const Text("Manage Cadets"),
@@ -91,7 +95,7 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
               MaterialPageRoute(builder: (context) => const AddEditCadetPage()),
             );
           },
-          backgroundColor: Colors.blue,
+          backgroundColor: AppTheme.navyBlue,
           child: const Icon(Icons.add, color: Colors.white, size: 30),
         ),
       ),

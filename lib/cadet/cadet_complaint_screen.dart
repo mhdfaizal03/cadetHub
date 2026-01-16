@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ncc_cadet/models/complaint_model.dart';
 import 'package:ncc_cadet/providers/user_provider.dart';
 import 'package:ncc_cadet/services/complaint_service.dart';
+import 'package:ncc_cadet/utils/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
@@ -123,7 +124,7 @@ class _CadetComplaintScreenState extends State<CadetComplaintScreen> {
                   Navigator.pop(context); // Close modal
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1D5CFF),
+                  backgroundColor: AppTheme.navyBlue,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -156,7 +157,10 @@ class _CadetComplaintScreenState extends State<CadetComplaintScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: const BackButton(color: Colors.black),
+        leading: IconButton(
+          icon: const Icon(Icons.keyboard_arrow_left, color: Colors.black),
+          onPressed: () => Navigator.maybePop(context),
+        ),
         title: const Text(
           "Complaints",
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
@@ -165,7 +169,7 @@ class _CadetComplaintScreenState extends State<CadetComplaintScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddComplaintDialog,
-        backgroundColor: const Color(0xFF1D5CFF),
+        backgroundColor: AppTheme.navyBlue,
         icon: const Icon(Icons.add),
         label: const Text("New Complaint"),
       ),

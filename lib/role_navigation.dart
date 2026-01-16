@@ -5,14 +5,16 @@ import 'package:ncc_cadet/officer/officer_navbar.dart';
 
 void navigateByRole(BuildContext context, String role) {
   if (role == "officer") {
-    Navigator.pushReplacement(
+    Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const OfficerNavBar()),
+      (route) => false,
     );
   } else {
-    Navigator.pushReplacement(
+    Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const CadetNavbar()),
+      (route) => false,
     );
   }
 }

@@ -16,6 +16,7 @@ import 'package:ncc_cadet/officer/officer_complaint_list_screen.dart';
 import 'package:ncc_cadet/services/auth_service.dart';
 import 'package:ncc_cadet/officer/mark_attendance_selection_screen.dart';
 import 'package:ncc_cadet/services/attendance_service.dart';
+import 'package:ncc_cadet/services/leave_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
 
 class OfficerDashboardScreen extends StatelessWidget {
@@ -99,6 +100,9 @@ class OfficerDashboardScreen extends StatelessWidget {
                 ),
               ).animate().fade(delay: 200.ms),
               const SizedBox(height: 15),
+
+              const SizedBox(height: 15),
+
               StreamBuilder<QuerySnapshot>(
                 stream: AuthService().getCadetsStream(user!.organizationId),
                 builder: (context, cadetSnapshot) {
@@ -194,12 +198,22 @@ class OfficerDashboardScreen extends StatelessWidget {
                     const ParadeListScreen(),
                     1,
                   ),
-                  _buildAction(
-                    context,
-                    "Manage Cadets",
-                    Icons.group_outlined,
-                    const ManageCadetsPage(),
-                    2,
+                  StreamBuilder<QuerySnapshot>(
+                    stream: AuthService().pendingCadets(user!.organizationId),
+                    builder: (context, snapshot) {
+                      int count = 0;
+                      if (snapshot.hasData) {
+                        count = snapshot.data!.docs.length;
+                      }
+                      return _buildAction(
+                        context,
+                        "Manage Cadets",
+                        Icons.group_outlined,
+                        const ManageCadetsPage(),
+                        2,
+                        badgeCount: count,
+                      );
+                    },
                   ),
                   _buildAction(
                     context,
@@ -215,14 +229,25 @@ class OfficerDashboardScreen extends StatelessWidget {
                     const SendNotificationPage(),
                     4,
                   ),
-                  _buildAction(
-                    context,
-                    "Approve Leave",
-                    Icons.security_outlined,
-                    const ApproveLeavePage(),
-                    5,
+                  StreamBuilder<QuerySnapshot>(
+                    stream: LeaveService().getPendingLeaves(
+                      user.organizationId,
+                    ),
+                    builder: (context, snapshot) {
+                      int count = 0;
+                      if (snapshot.hasData) {
+                        count = snapshot.data!.docs.length;
+                      }
+                      return _buildAction(
+                        context,
+                        "Approve Leave",
+                        Icons.security_outlined,
+                        const ApproveLeavePage(),
+                        5,
+                        badgeCount: count,
+                      );
+                    },
                   ),
-                  // Camp Management
                   _buildAction(
                     context,
                     "Manage Camps",
@@ -230,20 +255,59 @@ class OfficerDashboardScreen extends StatelessWidget {
                     const OfficerCampListScreen(),
                     6,
                   ),
-                  // Complaint Management
-                  _buildAction(
-                    context,
-                    "Complaints",
-                    Icons.report_problem_outlined,
-                    const OfficerComplaintListScreen(),
-                    7,
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection(
+                          'complaints',
+                        ) // Assuming ComplaintService accesses this
+                        .where('organizationId', isEqualTo: user.organizationId)
+                        .where('status', isEqualTo: 'Pending')
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      int count = 0;
+                      if (snapshot.hasData) {
+                        count = snapshot.data!.docs.length;
+                      }
+                      return _buildAction(
+                        context,
+                        "Complaints",
+                        Icons.report_problem_outlined,
+                        const OfficerComplaintListScreen(),
+                        7,
+                        badgeCount: count,
+                      );
+                    },
                   ),
-                  _buildAction(
-                    context,
-                    "Approve Cadets",
-                    Icons.approval_outlined,
-                    const ApproveCadetPage(),
-                    8,
+                  StreamBuilder<QuerySnapshot>(
+                    stream: AuthService().pendingCadets(user.organizationId),
+                    builder: (context, snapshot) {
+                      // Approve Cadets is basically the same as Manage Cadets pending check?
+                      // Wait, "Manage Cadets" might be list of all. "Approve Cadets" is explicitly for pending.
+                      // Let's put the badge on Approve Cadets mainly.
+                      // The user plan said "Manage Cadets: Count of 'Pending' cadet approvals".
+                      // I will put it on "Approve Cadets" as that's the actionable item.
+                      // And "Manage Cadets" can be just the list.
+                      // Re-reading logic: Manage Cadets is index 2. Approve Cadets is index 8.
+                      // Let's put badge on Approve Cadets (index 8) and maybe Manage Cadets too if key.
+                      // The code block for index 2 (Manage Cadets) already used pendingCadets.
+                      // I should probably remove the badge from Manage Cadets (index 2) if it's just a list,
+                      // OR keep it if that's where they go to approve.
+                      // Actually, let's keep it consistent.
+                      // Index 8 is "Approve Cadets".
+
+                      int count = 0;
+                      if (snapshot.hasData) {
+                        count = snapshot.data!.docs.length;
+                      }
+                      return _buildAction(
+                        context,
+                        "Approve Cadets",
+                        Icons.approval_outlined,
+                        const ApproveCadetPage(),
+                        8,
+                        badgeCount: count,
+                      );
+                    },
                   ),
                 ],
               ),
@@ -259,8 +323,9 @@ class OfficerDashboardScreen extends StatelessWidget {
     String label,
     IconData icon,
     Widget? page,
-    int index,
-  ) {
+    int index, {
+    int badgeCount = 0,
+  }) {
     return InkWell(
           onTap: () {
             if (page != null) {
@@ -285,7 +350,37 @@ class OfficerDashboardScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, color: AppTheme.navyBlue, size: 32),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(icon, color: AppTheme.navyBlue, size: 32),
+                    if (badgeCount > 0)
+                      Positioned(
+                        right: -8,
+                        top: -8,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Text(
+                            '$badgeCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
                 const SizedBox(height: 10),
                 Text(
                   label,

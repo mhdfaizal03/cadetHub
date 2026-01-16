@@ -18,12 +18,15 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
   // Controllers for text fields
   late TextEditingController _nameController;
   late TextEditingController _idController;
-  late TextEditingController _phoneController;
+  late TextEditingController _emailController;
+  late TextEditingController _passwordController;
 
   // State for dropdowns
-  String _selectedUnit = 'Alpha';
   String _selectedRank = 'Cadet';
   String _selectedStatus = 'Active';
+  String _selectedYear = '1st Year';
+
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -32,15 +35,34 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
     _nameController = TextEditingController(
       text: widget.cadetData?['name'] ?? '',
     );
-    _idController = TextEditingController(text: widget.cadetData?['id'] ?? '');
-    _phoneController = TextEditingController(
-      text: widget.cadetData?['phone'] ?? '',
+    _idController = TextEditingController(
+      text: widget.cadetData?['cadetId'] ?? '',
     );
+    // Email/Password only relevant for new users usually, or editing email?
+    // Let's allow editing email but not password for now (complexity).
+    _emailController = TextEditingController(
+      text: widget.cadetData?['email'] ?? '',
+    );
+    _passwordController = TextEditingController();
+
     if (widget.cadetData != null) {
-      _selectedUnit = widget.cadetData?['unit'] ?? 'Alpha';
       _selectedRank = widget.cadetData?['rank'] ?? 'Cadet';
-      _selectedStatus = widget.cadetData?['status'] ?? 'Active';
+      final statusVal = widget.cadetData?['status'];
+      if (statusVal == 1) _selectedStatus = 'Active';
+      if (statusVal == 0) _selectedStatus = 'Pending';
+      if (statusVal == -1) _selectedStatus = 'Inactive';
+
+      _selectedYear = widget.cadetData?['year'] ?? '1st Year';
     }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _idController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -51,10 +73,14 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.chevron_left, color: Colors.black, size: 28),
+          icon: const Icon(
+            Icons.keyboard_arrow_left,
+            color: Colors.white,
+            size: 28,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(isEditing ? "Edit Cadet" : "Add New Cadet"),
+        title: Text(isEditing ? "Edit Cadet" : "Register New Cadet"),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Divider(color: Colors.grey.shade200, height: 1),
@@ -100,6 +126,26 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
                 hint: "e.g. NCC/2023/1001",
                 icon: Icons.badge_outlined,
               ),
+              const SizedBox(height: 20),
+              _buildTextField(
+                label: "Email Address",
+                controller: _emailController,
+                hint: "cadet@example.com",
+                icon: Icons.email_outlined,
+                inputType: TextInputType.emailAddress,
+                readOnly: isEditing, // Changing email is complex (auth sync)
+              ),
+              if (!isEditing) ...[
+                const SizedBox(height: 20),
+                _buildTextField(
+                  label: "Password",
+                  controller: _passwordController,
+                  hint: "Create a password",
+                  icon: Icons.lock_outline,
+                  isPassword: true,
+                ),
+              ],
+
               const SizedBox(height: 30),
 
               _buildSectionLabel("Service Details"),
@@ -108,10 +154,10 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
                 children: [
                   Expanded(
                     child: _buildDropdown(
-                      label: "Unit",
-                      value: _selectedUnit,
-                      items: ['Alpha', 'Bravo', 'Charlie', 'Delta'],
-                      onChanged: (val) => setState(() => _selectedUnit = val!),
+                      label: "Year",
+                      value: _selectedYear,
+                      items: ['1st Year', '2nd Year', '3rd Year'],
+                      onChanged: (val) => setState(() => _selectedYear = val!),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -127,7 +173,7 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
               ),
               const SizedBox(height: 20),
               _buildDropdown(
-                label: "Enrollment Status",
+                label: "Account Status",
                 value: _selectedStatus,
                 items: ['Active', 'Inactive', 'Pending'],
                 onChanged: (val) => setState(() => _selectedStatus = val!),
@@ -139,7 +185,7 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
                 width: double.infinity,
                 height: 55,
                 child: ElevatedButton(
-                  onPressed: _saveCadet,
+                  onPressed: _isLoading ? null : _saveCadet,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1D5CFF),
                     shape: RoundedRectangleBorder(
@@ -147,25 +193,18 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
                     ),
                     elevation: 0,
                   ),
-                  child: Text(
-                    isEditing ? "Update Cadet Info" : "Register Cadet",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : Text(
+                          isEditing ? "Update Cadet Info" : "Register Cadet",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
                 ),
               ),
-              if (!isEditing)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16.0),
-                  child: const Text(
-                    "Note: New cadets should preferably register themselves via the app using the Organization Code.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey, fontSize: 13),
-                  ),
-                ),
             ],
           ),
         ),
@@ -175,44 +214,72 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
 
   Future<void> _saveCadet() async {
     if (!_formKey.currentState!.validate()) return;
-
-    // Check if editing
-    if (widget.cadetData == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please ask the cadet to register via the app."),
-        ),
-      );
-      return;
-    }
-
-    final uid = widget.cadetData!['uid'];
-
-    // Convert status string to integer
-    int statusInt = 0;
-    if (_selectedStatus == 'Active') statusInt = 1;
-    if (_selectedStatus == 'Inactive') statusInt = -1;
-    if (_selectedStatus == 'Pending') statusInt = 0;
+    setState(() => _isLoading = true);
 
     try {
-      await _authService.updateUserData(uid, {
-        'name': _nameController.text.trim(),
-        'cadetId': _idController.text
-            .trim(), // Assuming 'cadetId' is the field name
-        // 'phone': _phoneController.text.trim(), // Remove if phone not in use or add controller
-        'unit': _selectedUnit,
-        'rank': _selectedRank,
-        'status': statusInt,
-      });
+      // Convert status string to integer
+      int statusInt = 0;
+      if (_selectedStatus == 'Active') statusInt = 1;
+      if (_selectedStatus == 'Inactive') statusInt = -1;
+      if (_selectedStatus == 'Pending') statusInt = 0;
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Cadet updated successfully"),
-            backgroundColor: Colors.green,
-          ),
+      if (widget.cadetData == null) {
+        // --- ADD NEW CADET ---
+
+        // Get generic user provider to get organizationId
+        // Assuming we have a UserProvider or we fetch current user logic here.
+        // AuthService.currentUser is available.
+        final currentUserProfile = await _authService.getUserProfile();
+        if (currentUserProfile == null) {
+          throw Exception("Could not verify officer session.");
+        }
+
+        final error = await _authService.registerCadetByOfficer(
+          name: _nameController.text.trim(),
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+          cadetId: _idController.text.trim(),
+          organizationId: currentUserProfile.organizationId,
+          year: _selectedYear,
+          rank: _selectedRank,
+          status: statusInt,
         );
-        Navigator.pop(context);
+
+        if (error != null) {
+          throw Exception(error);
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Cadet created successfully"),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context);
+        }
+      } else {
+        // --- EDIT EXISTING CADET ---
+        final uid = widget.cadetData!['uid'];
+
+        await _authService.updateUserData(uid, {
+          'name': _nameController.text.trim(),
+          'rank': _selectedRank,
+          'year': _selectedYear,
+          'status': statusInt,
+          'cadetId': _idController.text.trim(),
+          // 'email' change is complex, skipping for now
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Cadet updated successfully"),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -220,6 +287,8 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
           SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -241,6 +310,9 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
     required TextEditingController controller,
     required String hint,
     required IconData icon,
+    bool readOnly = false,
+    bool isPassword = false,
+    TextInputType inputType = TextInputType.text,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,12 +324,19 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
-          validator: (value) => value!.isEmpty ? "Field required" : null,
+          readOnly: readOnly,
+          obscureText: isPassword,
+          keyboardType: inputType,
+          validator: (value) {
+            if (value == null || value.isEmpty) return "Field required";
+            if (isPassword && value.length < 6) return "Min 6 chars";
+            return null;
+          },
           decoration: InputDecoration(
             hintText: hint,
             prefixIcon: Icon(icon, size: 20, color: const Color(0xFF1D5CFF)),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: readOnly ? Colors.grey.shade100 : Colors.white,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 16,

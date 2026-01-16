@@ -33,7 +33,11 @@ class _CadetAttendanceReportScreenState
         elevation: 0.5,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.chevron_left, color: Colors.black, size: 30),
+          icon: const Icon(
+            Icons.keyboard_arrow_left,
+            color: Colors.black,
+            size: 30,
+          ),
         ),
         title: const Text(
           "Attendance Report",

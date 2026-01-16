@@ -169,8 +169,13 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
 
   PreferredSizeWidget _buildAppBar({bool withTabs = false}) {
     return AppBar(
+      foregroundColor: Colors.white,
       leading: IconButton(
-        icon: const Icon(Icons.chevron_left, color: Colors.black, size: 28),
+        icon: const Icon(
+          Icons.keyboard_arrow_left,
+          color: AppTheme.navyBlue,
+          size: 28,
+        ),
         onPressed: () => Navigator.pop(context),
       ),
       title: Column(

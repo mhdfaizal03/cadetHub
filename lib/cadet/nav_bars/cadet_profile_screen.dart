@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:ncc_cadet/authentication/login_page.dart';
 import 'package:ncc_cadet/models/user_model.dart';
 import 'package:ncc_cadet/cadet/nav_bars/cadet_notification_screen.dart';
@@ -6,6 +7,10 @@ import 'package:ncc_cadet/cadet/profile/edit_profile_screen.dart';
 import 'package:ncc_cadet/cadet/profile/help_support_screen.dart';
 import 'package:ncc_cadet/services/auth_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
+import 'package:provider/provider.dart';
+import 'package:ncc_cadet/providers/user_provider.dart';
+
+import 'package:ncc_cadet/common/shimmer_loading.dart';
 
 class CadetProfileScreen extends StatelessWidget {
   const CadetProfileScreen({super.key});
@@ -24,18 +29,64 @@ class CadetProfileScreen extends StatelessWidget {
         elevation: 0,
         automaticallyImplyLeading: false,
       ),
-      body: FutureBuilder<UserModel?>(
-        future: AuthService().getUserProfile(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: Consumer<UserProvider>(
+        builder: (context, userProvider, child) {
+          final profile = userProvider.user;
 
-          if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-            return const Center(child: Text("Error loading profile"));
+          if (profile == null) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.grey.shade100),
+                    ),
+                    child: Column(
+                      children: [
+                        const ShimmerLoading.circular(height: 100, width: 100),
+                        const SizedBox(height: 16),
+                        const ShimmerLoading.rectangular(
+                          height: 24,
+                          width: 150,
+                        ),
+                        const SizedBox(height: 8),
+                        const ShimmerLoading.rectangular(
+                          height: 16,
+                          width: 100,
+                        ),
+                        const SizedBox(height: 24),
+                        const Divider(),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: const [
+                            Expanded(
+                              child: ShimmerLoading.rectangular(height: 60),
+                            ),
+                            SizedBox(width: 5),
+                            Expanded(
+                              child: ShimmerLoading.rectangular(height: 60),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        const ShimmerLoading.rectangular(height: 60),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  const ShimmerLoading.rectangular(height: 60),
+                  const SizedBox(height: 15),
+                  const ShimmerLoading.rectangular(height: 60),
+                  const SizedBox(height: 15),
+                  const ShimmerLoading.rectangular(height: 60),
+                ],
+              ),
+            );
           }
-
-          final profile = snapshot.data!;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
@@ -100,6 +151,7 @@ class CadetProfileScreen extends StatelessWidget {
                             profile.year,
                             Icons.calendar_today,
                           ),
+                          const SizedBox(width: 5),
                           _buildDetailItem(
                             "Unit",
                             profile.organizationId,
@@ -134,7 +186,7 @@ class CadetProfileScreen extends StatelessWidget {
                       MaterialPageRoute(
                         builder: (_) => EditProfileScreen(user: profile),
                       ),
-                    ).then((_) => (context as Element).markNeedsBuild());
+                    );
                   },
                 ),
                 _buildActionTile(
@@ -169,16 +221,41 @@ class CadetProfileScreen extends StatelessWidget {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () async {
-                      await AuthService().logout();
-                      if (context.mounted) {
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                const LoginPage(initialRole: 'cadet'),
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text("Confirm Logout"),
+                          content: const Text(
+                            "Are you sure you want to logout?",
                           ),
-                          (route) => false,
-                        );
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text("Cancel"),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              child: const Text(
+                                "Logout",
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (confirm == true) {
+                        await AuthService().logout();
+                        if (context.mounted) {
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  const LoginPage(initialRole: 'cadet'),
+                            ),
+                            (route) => false,
+                          );
+                        }
                       }
                     },
                     style: ElevatedButton.styleFrom(
@@ -211,37 +288,38 @@ class CadetProfileScreen extends StatelessWidget {
     bool isFullWidth = false,
   }) {
     return Expanded(
-      flex: isFullWidth ? 1 : 1,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppTheme.lightGrey,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 20, color: AppTheme.navyBlue.withOpacity(0.7)),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                color: AppTheme.navyBlue,
+        flex: isFullWidth ? 1 : 1,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTheme.lightGrey,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 20, color: AppTheme.navyBlue.withOpacity(0.7)),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: AppTheme.navyBlue,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
-      ),
-    );
+      ).animate().fade(duration: Duration(milliseconds: 100))
+      ..scale(begin: const Offset(0.9, 0.9));
   }
 
   Widget _buildActionTile({

@@ -20,7 +20,7 @@ class _ApproveCadetPageState extends State<ApproveCadetPage> {
         backgroundColor: Colors.white,
         appBar: AppBar(
           leading: IconButton(
-            icon: const Icon(Icons.chevron_left, size: 28),
+            icon: const Icon(Icons.keyboard_arrow_left, size: 28),
             onPressed: () => Navigator.pop(context),
           ),
           title: const Text("Approve Cadets"),

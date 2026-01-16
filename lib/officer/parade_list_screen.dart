@@ -24,7 +24,11 @@ class _ParadeListScreenState extends State<ParadeListScreen> {
         backgroundColor: AppTheme.lightGrey,
         appBar: AppBar(
           leading: IconButton(
-            icon: const Icon(Icons.chevron_left, color: Colors.white, size: 28),
+            icon: const Icon(
+              Icons.keyboard_arrow_left,
+              color: Colors.white,
+              size: 28,
+            ),
             onPressed: () => Navigator.pop(context),
           ),
           title: const Text(
@@ -220,19 +224,40 @@ class _ParadeListScreenState extends State<ParadeListScreen> {
                   ],
                 ),
               ),
-              IconButton(
-                icon: const Icon(
-                  Icons.edit_outlined,
-                  size: 20,
-                  color: Colors.grey,
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => AddEditParadeScreen(parade: parade),
+              PopupMenuButton(
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit, size: 16),
+                        SizedBox(width: 8),
+                        Text("Edit"),
+                      ],
                     ),
-                  );
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete, size: 16, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text("Delete", style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
+                ],
+                onSelected: (value) {
+                  if (value == 'edit') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AddEditParadeScreen(parade: parade),
+                      ),
+                    );
+                  } else if (value == 'delete') {
+                    _confirmDelete(context, parade);
+                  }
                 },
               ),
             ],
@@ -290,5 +315,29 @@ class _ParadeListScreenState extends State<ParadeListScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _confirmDelete(BuildContext context, ParadeModel parade) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Delete Parade"),
+        content: const Text("Are you sure you want to delete this parade?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await ParadeService().deleteParade(parade.id);
+    }
   }
 }

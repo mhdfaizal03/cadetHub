@@ -105,7 +105,11 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _navigate(Widget page) {
-    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => page));
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => page),
+      (route) => false,
+    );
   }
 
   void _showError(String msg) {
@@ -125,7 +129,13 @@ class _LoginPageState extends State<LoginPage> {
       appBar: AppBar(
         forceMaterialTransparency: true,
         leading: widget.initialRole != null
-            ? const BackButton(color: Colors.white)
+            ? IconButton(
+                icon: const Icon(
+                  Icons.keyboard_arrow_left,
+                  color: Colors.white,
+                ),
+                onPressed: () => Navigator.maybePop(context),
+              )
             : null,
       ),
       body: Center(

@@ -7,6 +7,7 @@ class UserModel {
   final String organizationId; // Unit/Org Code
   final String year; // '1st Year', '2nd Year', '3rd Year'
   final int status; // 0: Pending, 1: Approved, -1: Rejected
+  final String rank;
 
   UserModel({
     required this.uid,
@@ -17,6 +18,7 @@ class UserModel {
     required this.organizationId,
     this.year = '1st Year', // Default for now
     required this.status,
+    this.rank = 'Cadet',
   });
 
   // Factory constructor to create a User from Firestore data
@@ -32,6 +34,7 @@ class UserModel {
       organizationId: data['organizationId'] ?? '',
       year: data['year'] ?? '1st Year',
       status: data['status'] ?? 0,
+      rank: data['rank'] ?? 'Cadet',
     );
   }
 
@@ -44,6 +47,7 @@ class UserModel {
       'role': role,
       'year': year,
       'status': status,
+      'rank': rank,
       'organizationId': organizationId,
       role == 'officer' ? 'officerId' : 'cadetId': roleId,
     };

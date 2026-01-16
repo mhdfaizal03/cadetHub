@@ -45,13 +45,17 @@ class _OfficerComplaintListScreenState
     return Scaffold(
       backgroundColor: AppTheme.lightGrey,
       appBar: AppBar(
+        iconTheme: const IconThemeData(color: Colors.white),
         title: const Text(
           "Manage Complaints",
-          style: TextStyle(color: Colors.black),
+          style: TextStyle(color: Colors.white),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: AppTheme.navyBlue,
         elevation: 0,
-        leading: const BackButton(color: Colors.black),
+        leading: IconButton(
+          icon: const Icon(Icons.keyboard_arrow_left, color: Colors.white),
+          onPressed: () => Navigator.maybePop(context),
+        ),
         centerTitle: true,
       ),
       body: FutureBuilder<UserModel?>(

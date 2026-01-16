@@ -21,7 +21,10 @@ class CadetCampDetailsScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: const BackButton(color: Colors.black),
+        leading: IconButton(
+          icon: const Icon(Icons.keyboard_arrow_left, color: Colors.black),
+          onPressed: () => Navigator.maybePop(context),
+        ),
         title: const Text(
           "Upcoming Camps",
           style: TextStyle(

@@ -6,10 +6,12 @@ import 'package:ncc_cadet/cadet/cadet_attendance_report_page.dart';
 import 'package:ncc_cadet/cadet/cadet_camp_details_page.dart';
 import 'package:ncc_cadet/cadet/cadet_lave_request_screen.dart';
 import 'package:ncc_cadet/cadet/cadet_complaint_screen.dart';
+import 'package:ncc_cadet/cadet/cadet_leave_history_screen.dart';
 import 'package:ncc_cadet/cadet/nav_bars/cadet_notification_screen.dart';
 import 'package:ncc_cadet/cadet/nav_bars/cadet_profile_screen.dart';
 import 'package:ncc_cadet/providers/user_provider.dart';
 import 'package:ncc_cadet/utils/theme.dart';
+import 'package:ncc_cadet/common/shimmer_loading.dart';
 
 class CadetDashboardScreen extends StatelessWidget {
   const CadetDashboardScreen({super.key});
@@ -95,6 +97,31 @@ class CadetDashboardScreen extends StatelessWidget {
                     .where('cadetId', isEqualTo: user?.uid)
                     .snapshots(),
                 builder: (context, attendanceSnapshot) {
+                  if (attendanceSnapshot.connectionState ==
+                      ConnectionState.waiting) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Your Overview",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.navyBlue,
+                          ),
+                        ),
+                        const SizedBox(height: 15),
+                        Row(
+                          children: const [
+                            Expanded(child: ShimmerLoading.card(height: 140)),
+                            SizedBox(width: 15),
+                            Expanded(child: ShimmerLoading.card(height: 140)),
+                          ],
+                        ),
+                      ],
+                    );
+                  }
+
                   double attendancePercentage = 0.0;
                   if (attendanceSnapshot.hasData) {
                     final docs = attendanceSnapshot.data!.docs;
@@ -147,36 +174,156 @@ class CadetDashboardScreen extends StatelessWidget {
                                         .split('T')[0],
                                   )
                                   .orderBy('date')
-                                  .orderBy('date')
-                                  .limit(
-                                    10,
-                                  ) // Fetch next 10 to filter by year client-side
+                                  .limit(10)
                                   .snapshots(),
                               builder: (context, paradeSnapshot) {
-                                String nextParadeDate = "None";
-                                if (paradeSnapshot.hasData &&
-                                    paradeSnapshot.data!.docs.isNotEmpty) {
-                                  final docs = paradeSnapshot.data!.docs;
-                                  for (var doc in docs) {
-                                    final data =
-                                        doc.data() as Map<String, dynamic>;
-                                    // Check if parade targets this user's year or 'All'
-                                    // Handle cases where targetYear might be missing (legacy data)
-                                    final targetYear =
-                                        data['targetYear'] ?? 'All';
-                                    if (targetYear == 'All' ||
-                                        targetYear == user?.year) {
-                                      nextParadeDate = data['date'];
-                                      break; // Found the next relevant parade
+                                return StreamBuilder<QuerySnapshot>(
+                                  stream: FirebaseFirestore.instance
+                                      .collection('camps')
+                                      .where(
+                                        'organizationId',
+                                        isEqualTo: user?.organizationId,
+                                      )
+                                      .where(
+                                        'startDate',
+                                        isGreaterThanOrEqualTo: DateTime.now()
+                                            .toIso8601String()
+                                            .split('T')[0],
+                                      )
+                                      .orderBy('startDate')
+                                      .limit(10)
+                                      .snapshots(),
+                                  builder: (context, campSnapshot) {
+                                    if (paradeSnapshot.connectionState ==
+                                            ConnectionState.waiting ||
+                                        campSnapshot.connectionState ==
+                                            ConnectionState.waiting) {
+                                      return const ShimmerLoading.card(
+                                        height: 140,
+                                      );
                                     }
-                                  }
-                                }
-                                return OverviewCard(
-                                  icon: Icons.calendar_month_outlined,
-                                  iconColor: AppTheme.gold,
-                                  title: "Next Parade",
-                                  value: nextParadeDate,
-                                  subtitle: "Upcoming Event",
+
+                                    // Find Next Parade
+                                    Map<String, dynamic>? nextParade;
+                                    if (paradeSnapshot.hasData) {
+                                      for (var doc
+                                          in paradeSnapshot.data!.docs) {
+                                        final data =
+                                            doc.data() as Map<String, dynamic>;
+                                        final targetYear =
+                                            data['targetYear'] ?? 'All';
+                                        if (targetYear == 'All' ||
+                                            targetYear ==
+                                                "${user?.year} Year" ||
+                                            targetYear == user?.year) {
+                                          nextParade = data;
+                                          break;
+                                        }
+                                      }
+                                    }
+
+                                    // Find Next Camp
+                                    Map<String, dynamic>? nextCamp;
+                                    if (campSnapshot.hasData) {
+                                      for (var doc in campSnapshot.data!.docs) {
+                                        final data =
+                                            doc.data() as Map<String, dynamic>;
+                                        final targetYear =
+                                            data['targetYear'] ?? 'All';
+                                        if (targetYear == 'All' ||
+                                            targetYear ==
+                                                "${user?.year} Year" ||
+                                            targetYear == user?.year) {
+                                          nextCamp = data;
+                                          break;
+                                        }
+                                      }
+                                    }
+
+                                    // Determine Earliest Event
+                                    String title = "Next Event";
+                                    String date = "None";
+                                    String subtitle = "No upcoming events";
+                                    IconData icon =
+                                        Icons.calendar_today_outlined;
+                                    Color iconColor = Colors.grey;
+
+                                    if (nextParade != null &&
+                                        nextCamp != null) {
+                                      final paradeDate = DateTime.tryParse(
+                                        nextParade['date'] ?? '',
+                                      );
+                                      final campDate = DateTime.tryParse(
+                                        nextCamp['startDate'] ?? '',
+                                      );
+
+                                      if (paradeDate != null &&
+                                          campDate != null) {
+                                        if (paradeDate.isBefore(campDate) ||
+                                            paradeDate.isAtSameMomentAs(
+                                              campDate,
+                                            )) {
+                                          // Parade is sooner or same day
+                                          title = "Next Parade";
+                                          date = nextParade['date'];
+                                          subtitle =
+                                              nextParade['name'] ??
+                                              "Upcoming Parade";
+                                          icon = Icons.flag_outlined;
+                                          iconColor = AppTheme.gold;
+                                        } else {
+                                          // Camp is sooner
+                                          title = "Next Camp";
+                                          date = nextCamp['startDate'];
+                                          subtitle =
+                                              nextCamp['name'] ??
+                                              "Upcoming Camp";
+                                          icon = Icons.terrain_outlined;
+                                          iconColor = Colors.green;
+                                        }
+                                      } else if (paradeDate != null) {
+                                        // Camp date invalid
+                                        title = "Next Parade";
+                                        date = nextParade['date'];
+                                        subtitle =
+                                            nextParade['name'] ??
+                                            "Upcoming Parade";
+                                        icon = Icons.flag_outlined;
+                                        iconColor = AppTheme.gold;
+                                      } else if (campDate != null) {
+                                        // Parade date invalid
+                                        title = "Next Camp";
+                                        date = nextCamp['startDate'];
+                                        subtitle =
+                                            nextCamp['name'] ?? "Upcoming Camp";
+                                        icon = Icons.terrain_outlined;
+                                        iconColor = Colors.green;
+                                      }
+                                    } else if (nextParade != null) {
+                                      title = "Next Parade";
+                                      date = nextParade['date'];
+                                      subtitle =
+                                          nextParade['name'] ??
+                                          "Upcoming Parade";
+                                      icon = Icons.flag_outlined;
+                                      iconColor = AppTheme.gold;
+                                    } else if (nextCamp != null) {
+                                      title = "Next Camp";
+                                      date = nextCamp['startDate'];
+                                      subtitle =
+                                          nextCamp['name'] ?? "Upcoming Camp";
+                                      icon = Icons.terrain_outlined;
+                                      iconColor = Colors.green;
+                                    }
+
+                                    return OverviewCard(
+                                      icon: icon,
+                                      iconColor: iconColor,
+                                      title: title,
+                                      value: date,
+                                      subtitle: subtitle,
+                                    );
+                                  },
                                 );
                               },
                             ),
@@ -197,6 +344,10 @@ class CadetDashboardScreen extends StatelessWidget {
                     .where('status', isEqualTo: 'Pending')
                     .snapshots(),
                 builder: (context, leaveSnapshot) {
+                  if (leaveSnapshot.connectionState ==
+                      ConnectionState.waiting) {
+                    return const ShimmerLoading.card(height: 80);
+                  }
                   int pendingCount = 0;
                   if (leaveSnapshot.hasData) {
                     pendingCount = leaveSnapshot.data!.docs.length;
@@ -234,12 +385,33 @@ class CadetDashboardScreen extends StatelessWidget {
                     const CadetAttendanceReportScreen(),
                     0,
                   ),
-                  _buildAction(
-                    context,
-                    "Notifications",
-                    Icons.notifications_none_outlined,
-                    const CadetNotificationsScreen(),
-                    1,
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('notifications')
+                        .where(
+                          'type',
+                          whereIn: ['global', 'organization', 'cadet'],
+                        )
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      int count = 0;
+                      if (snapshot.hasData) {
+                        count = snapshot.data!.docs.where((doc) {
+                          final data = doc.data() as Map<String, dynamic>;
+                          final targetId = data['targetId'];
+                          final isRead = data['isRead'] ?? false;
+                          return (targetId == user?.uid) && !isRead;
+                        }).length;
+                      }
+                      return _buildAction(
+                        context,
+                        "Notifications",
+                        Icons.notifications_none_outlined,
+                        const CadetNotificationsScreen(),
+                        1,
+                        badgeCount: count,
+                      );
+                    },
                   ),
                   _buildAction(
                     context,
@@ -262,7 +434,6 @@ class CadetDashboardScreen extends StatelessWidget {
                     const CadetProfileScreen(),
                     4,
                   ),
-                  // Placeholder for others
                   _buildAction(
                     context,
                     "Complaints",
@@ -284,8 +455,9 @@ class CadetDashboardScreen extends StatelessWidget {
     String label,
     IconData icon,
     Widget? page,
-    int index,
-  ) {
+    int index, {
+    int badgeCount = 0,
+  }) {
     return InkWell(
           onTap: () {
             if (page != null) {
@@ -310,7 +482,37 @@ class CadetDashboardScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, color: AppTheme.navyBlue, size: 32),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(icon, color: AppTheme.navyBlue, size: 32),
+                    if (badgeCount > 0)
+                      Positioned(
+                        right: -8,
+                        top: -8,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Text(
+                            '$badgeCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
                 const SizedBox(height: 10),
                 Text(
                   label,
@@ -408,82 +610,93 @@ class LeaveStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppTheme.navyBlue, AppTheme.navyBlue.withOpacity(0.9)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.navyBlue.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const CadetLeaveHistoryScreen(),
           ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                "Leave Request Status",
-                style: TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Text(
-                    pendingCount > 0 ? "Pending" : "No Pending",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
+        );
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [AppTheme.navyBlue, AppTheme.navyBlue.withOpacity(0.9)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.navyBlue.withOpacity(0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Leave Request Status",
+                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text(
+                      pendingCount > 0 ? "Pending" : "Check History",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  if (pendingCount > 0)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.gold,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        "$pendingCount Action${pendingCount > 1 ? 's' : ''}",
-                        style: const TextStyle(
-                          color: AppTheme.navyBlue,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                    const SizedBox(width: 10),
+                    if (pendingCount > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.gold,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          "$pendingCount Action${pendingCount > 1 ? 's' : ''}",
+                          style: const TextStyle(
+                            color: AppTheme.navyBlue,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
+              ],
+            ),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                shape: BoxShape.circle,
               ),
-            ],
-          ),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              shape: BoxShape.circle,
+              child: const Icon(
+                Icons.arrow_forward_ios,
+                color: Colors.white,
+                size: 16,
+              ),
             ),
-            child: const Icon(
-              Icons.arrow_forward_ios,
-              color: Colors.white,
-              size: 16,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

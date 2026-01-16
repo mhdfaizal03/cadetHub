@@ -78,7 +78,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: const BackButton(color: Colors.black),
+        leading: IconButton(
+          icon: const Icon(Icons.keyboard_arrow_left, color: Colors.black),
+          onPressed: () => Navigator.maybePop(context),
+        ),
         centerTitle: true,
       ),
       body: SingleChildScrollView(

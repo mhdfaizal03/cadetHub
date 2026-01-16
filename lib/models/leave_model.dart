@@ -10,6 +10,8 @@ class LeaveModel {
   final String status; // 'Pending', 'Approved', 'Rejected'
   final String organizationId;
   final DateTime createdAt;
+  final String cadetYear; // e.g. "1st Year"
+  final String? rejectionReason;
 
   LeaveModel({
     required this.id,
@@ -21,6 +23,8 @@ class LeaveModel {
     required this.status,
     required this.organizationId,
     required this.createdAt,
+    required this.cadetYear,
+    this.rejectionReason,
   });
 
   factory LeaveModel.fromMap(Map<String, dynamic> data, String id) {
@@ -34,6 +38,8 @@ class LeaveModel {
       status: data['status'] ?? 'Pending',
       organizationId: data['organizationId'] ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      cadetYear: data['cadetYear'] ?? 'Unknown',
+      rejectionReason: data['rejectionReason'],
     );
   }
 
@@ -47,6 +53,8 @@ class LeaveModel {
       'status': status,
       'organizationId': organizationId,
       'createdAt': createdAt,
+      'cadetYear': cadetYear,
+      'rejectionReason': rejectionReason,
     };
   }
 }

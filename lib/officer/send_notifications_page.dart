@@ -69,13 +69,21 @@ class _SendNotificationPageState extends State<SendNotificationPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        iconTheme: const IconThemeData(color: Colors.white),
         title: const Text(
           "Send Notification",
-          style: TextStyle(color: Colors.black),
+          style: TextStyle(color: Colors.white),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: AppTheme.navyBlue,
         elevation: 0,
-        leading: const BackButton(color: Colors.black),
+        leading: IconButton(
+          icon: const Icon(
+            Icons.keyboard_arrow_left,
+            color: Colors.white,
+            size: 28,
+          ),
+          onPressed: () => Navigator.maybePop(context),
+        ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Divider(color: Colors.grey.shade200, height: 1),
@@ -160,10 +168,10 @@ class _SendNotificationPageState extends State<SendNotificationPage> {
                   ),
                   secondary: Icon(
                     Icons.priority_high,
-                    color: _isImportant ? AppTheme.accentBlue : Colors.grey,
+                    color: _isImportant ? AppTheme.navyBlue : Colors.grey,
                   ),
                   value: _isImportant,
-                  activeColor: AppTheme.accentBlue,
+                  activeColor: AppTheme.navyBlue,
                   onChanged: (bool value) {
                     setState(() {
                       _isImportant = value;
@@ -181,7 +189,7 @@ class _SendNotificationPageState extends State<SendNotificationPage> {
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _sendNotification,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accentBlue,
+                    backgroundColor: AppTheme.navyBlue,
                     disabledBackgroundColor: Colors.grey.shade300,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),

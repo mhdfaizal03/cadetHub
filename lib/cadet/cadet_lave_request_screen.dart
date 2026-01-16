@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:ncc_cadet/models/user_model.dart';
 import 'package:ncc_cadet/models/leave_model.dart';
+import 'package:ncc_cadet/models/notification_model.dart';
 import 'package:ncc_cadet/providers/user_provider.dart';
 import 'package:ncc_cadet/services/leave_service.dart';
+import 'package:ncc_cadet/services/notification_service.dart';
 import 'package:ncc_cadet/utils/theme.dart'; // Import AppTheme
 import 'package:provider/provider.dart';
 
@@ -98,10 +101,23 @@ class _CadetLeaveRequestScreenState extends State<CadetLeaveRequestScreen> {
         endDate: _toDateController.text,
         status: 'Pending',
         organizationId: user.organizationId,
+        cadetYear: user.year, // Use the user's year
         createdAt: DateTime.now(),
       );
 
       await LeaveService().requestLeave(leave);
+
+      // Notify Organization (Officer)
+      await NotificationService().sendNotification(
+        NotificationModel(
+          id: '',
+          title: 'New Leave Request',
+          message: '${user.name} has requested leave.',
+          type: 'organization',
+          targetId: user.organizationId,
+          createdAt: DateTime.now(),
+        ),
+      );
 
       if (mounted) {
         showDialog(
@@ -151,7 +167,10 @@ class _CadetLeaveRequestScreenState extends State<CadetLeaveRequestScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-        leading: const BackButton(color: AppTheme.navyBlue),
+        leading: IconButton(
+          icon: const Icon(Icons.keyboard_arrow_left, color: AppTheme.navyBlue),
+          onPressed: () => Navigator.maybePop(context),
+        ),
         title: const Text(
           "Leave Request",
           style: TextStyle(

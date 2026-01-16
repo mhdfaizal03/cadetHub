@@ -1,26 +1,53 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:ncc_cadet/models/user_model.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // Get current user profile stream (for real-time updates & offline cache)
+  Stream<UserModel?> getUserStream() {
+    final User? user = _auth.currentUser;
+    if (user != null) {
+      return _firestore.collection('users').doc(user.uid).snapshots().map((
+        doc,
+      ) {
+        if (doc.exists) {
+          return UserModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+        }
+        return null;
+      });
+    }
+    return Stream.value(null);
+  }
+
   // Get current user profile
   Future<UserModel?> getUserProfile() async {
     try {
       final User? user = _auth.currentUser;
       if (user != null) {
-        final DocumentSnapshot doc = await _firestore
-            .collection('users')
-            .doc(user.uid)
-            .get();
-        if (doc.exists) {
-          return UserModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
-        }
+        return getUserData(user.uid);
       }
     } catch (e) {
       print("Error fetching user profile: $e");
+    }
+    return null;
+  }
+
+  // Get user data by UID
+  Future<UserModel?> getUserData(String uid) async {
+    try {
+      final DocumentSnapshot doc = await _firestore
+          .collection('users')
+          .doc(uid)
+          .get();
+      if (doc.exists) {
+        return UserModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+      }
+    } catch (e) {
+      print("Error fetching user data: $e");
     }
     return null;
   }
@@ -185,6 +212,78 @@ class AuthService {
       return e.message ?? "Failed to send reset email";
     } catch (e) {
       return "An unexpected error occurred";
+    }
+  }
+
+  // Register Cadet by Officer (Secondary App to avoid logout)
+  Future<String?> registerCadetByOfficer({
+    required String name,
+    required String email,
+    required String password,
+    required String cadetId,
+    required String organizationId,
+    required String year,
+    required String rank,
+    required int status,
+  }) async {
+    FirebaseApp? secondaryApp;
+    try {
+      // 1. Check if Organization Exists (Should be valid as Officer is logged in)
+      // 2. Check if Cadet ID is unique
+      final existingUserDocs = await _firestore
+          .collection('users')
+          .where('cadetId', isEqualTo: cadetId)
+          .limit(1)
+          .get();
+
+      if (existingUserDocs.docs.isNotEmpty) {
+        return "This Cadet ID is already in use.";
+      }
+
+      // 3. Create User in Auth using Secondary App
+      secondaryApp = await Firebase.initializeApp(
+        name: 'SecondaryApp',
+        options: Firebase.app().options,
+      );
+
+      final secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
+      final cred = await secondaryAuth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      if (cred.user == null) {
+        return "Failed to create user in Auth";
+      }
+
+      final uid = cred.user!.uid;
+
+      // 4. Create User Model and Save to Firestore
+      final newUser = UserModel(
+        uid: uid,
+        email: email,
+        name: name,
+        role: 'cadet',
+        roleId: cadetId,
+        organizationId: organizationId,
+        year: year,
+        status: status, // Officer sets status (Active/Pending)
+        rank: rank,
+      );
+
+      // We use the MAIN firestore instance to save the data
+      await _firestore.collection('users').doc(uid).set(newUser.toMap());
+
+      await secondaryAuth.signOut();
+      return null; // Success
+    } on FirebaseAuthException catch (e) {
+      return e.message ?? "Registration failed";
+    } catch (e) {
+      return "An unexpected error occurred: $e";
+    } finally {
+      if (secondaryApp != null) {
+        await secondaryApp.delete();
+      }
     }
   }
 

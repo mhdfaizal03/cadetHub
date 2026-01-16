@@ -31,7 +31,11 @@ class _OfficerAttendanceReportState extends State<OfficerAttendanceReport> {
           elevation: 0,
           foregroundColor: Colors.white,
           leading: IconButton(
-            icon: const Icon(Icons.chevron_left, color: Colors.white, size: 28),
+            icon: const Icon(
+              Icons.keyboard_arrow_left,
+              color: Colors.white,
+              size: 28,
+            ),
             onPressed: () => Navigator.pop(context),
           ),
           title: const Text(

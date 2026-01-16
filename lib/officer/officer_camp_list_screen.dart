@@ -31,7 +31,14 @@ class _OfficerCampListScreenState extends State<OfficerCampListScreen> {
           ),
           backgroundColor: AppTheme.navyBlue,
           elevation: 0,
-          leading: const BackButton(color: Colors.white),
+          leading: IconButton(
+            icon: const Icon(
+              Icons.keyboard_arrow_left,
+              color: Colors.white,
+              size: 28,
+            ),
+            onPressed: () => Navigator.maybePop(context),
+          ),
           centerTitle: true,
           bottom: TabBar(
             labelColor: AppTheme.accentBlue,

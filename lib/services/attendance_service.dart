@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:ncc_cadet/models/attendance_model.dart';
+import 'package:ncc_cadet/models/notification_model.dart';
+import 'package:ncc_cadet/services/notification_service.dart';
 
 class AttendanceService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -29,6 +31,21 @@ class AttendanceService {
     }
 
     await batch.commit();
+
+    // Notify Organization
+    if (records.isNotEmpty) {
+      final orgId = records.first.organizationId;
+      await NotificationService().sendNotification(
+        NotificationModel(
+          id: '',
+          title: 'Attendance Updated',
+          message: 'Attendance for the recent parade has been updated.',
+          type: 'organization',
+          targetId: orgId,
+          createdAt: DateTime.now(),
+        ),
+      );
+    }
   }
 
   // Mark Single Attendance (Upsert logic)
