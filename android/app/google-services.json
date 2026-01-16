@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "435777837540",
+    "project_id": "cadet-hub-7ac2d",
+    "storage_bucket": "cadet-hub-7ac2d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:435777837540:android:56f730c59c2efa31cfcff1",
+        "android_client_info": {
+          "package_name": "com.example.ncc_cadet"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD1hDBzIPKWpk0K9BtiJf2rQXl4pvGFle4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
