@@ -108,6 +108,7 @@ class CadetDashboardScreen extends StatelessWidget {
                   }
 
                   return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
                         "Your Overview",
@@ -146,14 +147,29 @@ class CadetDashboardScreen extends StatelessWidget {
                                         .split('T')[0],
                                   )
                                   .orderBy('date')
-                                  .limit(1)
+                                  .orderBy('date')
+                                  .limit(
+                                    10,
+                                  ) // Fetch next 10 to filter by year client-side
                                   .snapshots(),
                               builder: (context, paradeSnapshot) {
                                 String nextParadeDate = "None";
                                 if (paradeSnapshot.hasData &&
                                     paradeSnapshot.data!.docs.isNotEmpty) {
-                                  nextParadeDate =
-                                      paradeSnapshot.data!.docs.first['date'];
+                                  final docs = paradeSnapshot.data!.docs;
+                                  for (var doc in docs) {
+                                    final data =
+                                        doc.data() as Map<String, dynamic>;
+                                    // Check if parade targets this user's year or 'All'
+                                    // Handle cases where targetYear might be missing (legacy data)
+                                    final targetYear =
+                                        data['targetYear'] ?? 'All';
+                                    if (targetYear == 'All' ||
+                                        targetYear == user?.year) {
+                                      nextParadeDate = data['date'];
+                                      break; // Found the next relevant parade
+                                    }
+                                  }
                                 }
                                 return OverviewCard(
                                   icon: Icons.calendar_month_outlined,

@@ -16,89 +16,137 @@ class ParadeListScreen extends StatefulWidget {
 }
 
 class _ParadeListScreenState extends State<ParadeListScreen> {
-  // Removed static primaryColor, using AppTheme now
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.lightGrey,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.chevron_left, color: Colors.black, size: 28),
-          onPressed: () => Navigator.pop(context),
+    return DefaultTabController(
+      length: 4,
+      child: Scaffold(
+        backgroundColor: AppTheme.lightGrey,
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.chevron_left, color: Colors.white, size: 28),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: const Text(
+            "Manage Parades",
+            style: TextStyle(color: Colors.white),
+          ),
+          centerTitle: true,
+          backgroundColor: AppTheme.navyBlue,
+          elevation: 0,
+          foregroundColor: Colors.white,
+          bottom: TabBar(
+            labelColor: AppTheme.accentBlue,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: AppTheme.accentBlue,
+
+            tabs: const [
+              Tab(text: "All"),
+              Tab(text: "1st Year"),
+              Tab(text: "2nd Year"),
+              Tab(text: "3rd Year"),
+            ],
+          ),
         ),
-        title: const Text(
-          "Manage Parades",
-          style: TextStyle(color: Colors.black),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        elevation: 0,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Divider(height: 1, color: Colors.grey.shade200),
-        ),
-      ),
-      body: FutureBuilder<UserModel?>(
-        future: AuthService().getUserProfile(),
-        builder: (context, userSnapshot) {
-          if (userSnapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppTheme.accentBlue),
-            );
-          }
-
-          final officer = userSnapshot.data;
-          if (officer == null) {
-            return const Center(child: Text("Error fetching officer profile"));
-          }
-
-          return StreamBuilder<QuerySnapshot>(
-            stream: ParadeService().getParadesStream(officer.organizationId),
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                debugPrint("Error fetching parades: ${snapshot.error}");
-                return Center(child: Text("Error: ${snapshot.error}"));
-              }
-
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(
-                  child: CircularProgressIndicator(color: AppTheme.accentBlue),
-                );
-              }
-
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return _buildEmptyState();
-              }
-
-              final parades = snapshot.data!.docs.map((doc) {
-                return ParadeModel.fromMap(
-                  doc.data() as Map<String, dynamic>,
-                  doc.id,
-                );
-              }).toList();
-
-              return ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: parades.length,
-                itemBuilder: (context, index) {
-                  return _buildParadeCard(context, parades[index]);
-                },
+        body: FutureBuilder<UserModel?>(
+          future: AuthService().getUserProfile(),
+          builder: (context, userSnapshot) {
+            if (userSnapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: AppTheme.accentBlue),
               );
-            },
-          );
-        },
+            }
+
+            final officer = userSnapshot.data;
+            if (officer == null) {
+              return const Center(
+                child: Text("Error fetching officer profile"),
+              );
+            }
+
+            return StreamBuilder<QuerySnapshot>(
+              stream: ParadeService().getParadesStream(officer.organizationId),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  debugPrint("Error fetching parades: ${snapshot.error}");
+                  return Center(child: Text("Error: ${snapshot.error}"));
+                }
+
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: AppTheme.accentBlue,
+                    ),
+                  );
+                }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return _buildEmptyState();
+                }
+
+                final allParades = snapshot.data!.docs.map((doc) {
+                  return ParadeModel.fromMap(
+                    doc.data() as Map<String, dynamic>,
+                    doc.id,
+                  );
+                }).toList();
+
+                return TabBarView(
+                  children: [
+                    _buildParadeList(allParades, "All"),
+                    _buildParadeList(allParades, "1st Year"),
+                    _buildParadeList(allParades, "2nd Year"),
+                    _buildParadeList(allParades, "3rd Year"),
+                  ],
+                );
+              },
+            );
+          },
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AddEditParadeScreen()),
+            );
+          },
+          backgroundColor: AppTheme.accentBlue,
+          child: const Icon(Icons.add, color: AppTheme.white),
+        ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AddEditParadeScreen()),
-          );
-        },
-        backgroundColor: AppTheme.accentBlue,
-        child: const Icon(Icons.add, color: AppTheme.white),
-      ),
+    );
+  }
+
+  Widget _buildParadeList(List<ParadeModel> allParades, String year) {
+    // strict filtering logic:
+    // If year is "All" -> show everything
+    // Else -> show parades where targetYear matches year
+    final filteredParades = year == "All"
+        ? allParades
+        : allParades.where((p) => p.targetYear == year).toList();
+
+    if (filteredParades.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.event_busy, size: 64, color: Colors.grey.shade300),
+            const SizedBox(height: 16),
+            Text(
+              "No Parades for $year",
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: filteredParades.length,
+      itemBuilder: (context, index) {
+        return _buildParadeCard(context, filteredParades[index]);
+      },
     );
   }
 
@@ -140,12 +188,36 @@ class _ParadeListScreenState extends State<ParadeListScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: Text(
-                  parade.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      parade.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        parade.targetYear,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.blue.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               IconButton(

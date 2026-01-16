@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'package:ncc_cadet/authentication/cadet_pending_screen.dart';
 import 'package:ncc_cadet/authentication/register_page.dart';
+import 'package:ncc_cadet/authentication/forgot_password_page.dart';
 import 'package:ncc_cadet/services/auth_service.dart';
 import 'package:ncc_cadet/models/user_model.dart';
 import 'package:ncc_cadet/providers/user_provider.dart';
@@ -226,6 +227,27 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                         validator: (v) => v!.length < 6 ? "Min 6 chars" : null,
+                      ),
+
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const ForgotPasswordPage(),
+                              ),
+                            );
+                          },
+                          child: const Text(
+                            "Forgot Password?",
+                            style: TextStyle(
+                              color: AppTheme.navyBlue,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
                       ),
 
                       const SizedBox(height: 24),

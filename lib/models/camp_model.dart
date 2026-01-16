@@ -6,6 +6,7 @@ class CampModel {
   final String endDate;
   final String description;
   final String organizationId;
+  final String targetYear; // New field
   final DateTime createdAt;
 
   CampModel({
@@ -16,6 +17,7 @@ class CampModel {
     required this.endDate,
     required this.description,
     required this.organizationId,
+    required this.targetYear, // New field
     required this.createdAt,
   });
 
@@ -27,6 +29,7 @@ class CampModel {
       'endDate': endDate,
       'description': description,
       'organizationId': organizationId,
+      'targetYear': targetYear, // New field
       'createdAt': createdAt.toIso8601String(),
     };
   }
@@ -40,6 +43,7 @@ class CampModel {
       endDate: map['endDate'] ?? '',
       description: map['description'] ?? '',
       organizationId: map['organizationId'] ?? '',
+      targetYear: map['targetYear'] ?? 'All', // Default to 'All'
       createdAt: DateTime.parse(map['createdAt']),
     );
   }

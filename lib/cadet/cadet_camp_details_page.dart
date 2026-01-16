@@ -44,37 +44,50 @@ class CadetCampDetailsScreen extends StatelessWidget {
           }
 
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.terrain_outlined, size: 60, color: Colors.grey),
-                  SizedBox(height: 10),
-                  Text(
-                    "No upcoming camps found.",
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ],
-              ),
-            );
+            return _buildEmptyState();
           }
 
-          final camps = snapshot.data!.docs.map((doc) {
+          final allCamps = snapshot.data!.docs.map((doc) {
             return CampModel.fromMap(
               doc.data() as Map<String, dynamic>,
               doc.id,
             );
           }).toList();
 
+          // Filter by Year
+          final filteredCamps = allCamps.where((camp) {
+            return camp.targetYear == 'All' || camp.targetYear == user.year;
+          }).toList();
+
+          if (filteredCamps.isEmpty) {
+            return _buildEmptyState();
+          }
+
           return ListView.builder(
             padding: const EdgeInsets.all(16.0),
-            itemCount: camps.length,
+            itemCount: filteredCamps.length,
             itemBuilder: (context, index) {
-              final camp = camps[index];
+              final camp = filteredCamps[index];
               return _CampCard(camp: camp);
             },
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.terrain_outlined, size: 60, color: Colors.grey),
+          SizedBox(height: 10),
+          Text(
+            "No upcoming camps found.",
+            style: TextStyle(color: Colors.grey),
+          ),
+        ],
       ),
     );
   }
@@ -104,9 +117,36 @@ class _CampCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            camp.name,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                camp.name,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (camp.targetYear != 'All')
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    camp.targetYear,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.blue.shade700,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 12),
           _buildInfoRow(
@@ -122,17 +162,6 @@ class _CampCard extends StatelessWidget {
             "Details:",
             camp.description,
           ),
-          // const SizedBox(height: 20),
-          // const Divider(),
-          // Align(
-          //   alignment: Alignment.centerRight,
-          //   child: TextButton(
-          //     onPressed: () {
-          //       // Apply logic?
-          //     },
-          //     child: const Text("Apply Now")
-          //   ),
-          // )
         ],
       ),
     );
@@ -145,7 +174,7 @@ class _CampCard extends StatelessWidget {
         Icon(icon, size: 16, color: Colors.grey.shade700),
         const SizedBox(width: 8),
         Text(
-          label, // Date:
+          label,
           style: const TextStyle(color: Colors.black54, fontSize: 13),
         ),
         const SizedBox(width: 8),

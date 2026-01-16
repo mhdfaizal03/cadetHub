@@ -18,6 +18,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController(); // New
   final _roleIdController = TextEditingController();
   final _orgIdController = TextEditingController();
 
@@ -25,6 +26,7 @@ class _RegisterPageState extends State<RegisterPage> {
   String _selectedYear = '1st Year';
   bool _isLoading = false;
   bool _isObscured = true;
+  bool _isConfirmObscured = true; // New
 
   @override
   void initState() {
@@ -37,6 +39,7 @@ class _RegisterPageState extends State<RegisterPage> {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose(); // Dispose
     _roleIdController.dispose();
     _orgIdController.dispose();
     super.dispose();
@@ -55,7 +58,7 @@ class _RegisterPageState extends State<RegisterPage> {
         password: _passwordController.text.trim(),
         role: _selectedRole,
         roleId: _roleIdController.text.trim(),
-        organizationId: _orgIdController.text.trim().toUpperCase(),
+        organizationId: _orgIdController.text.trim(),
         year: _selectedYear,
       );
 
@@ -175,25 +178,30 @@ class _RegisterPageState extends State<RegisterPage> {
                       ),
                       const SizedBox(height: 16),
 
-                      TextFormField(
-                        controller: _roleIdController,
-                        decoration: InputDecoration(
-                          labelText: _selectedRole == 'officer'
-                              ? "Officer ID"
-                              : "Cadet ID",
-                          prefixIcon: const Icon(Icons.badge_outlined),
+                      if (_selectedRole == 'cadet') ...[
+                        TextFormField(
+                          controller: _roleIdController,
+                          decoration: const InputDecoration(
+                            labelText: "Cadet ID",
+                            helperText:
+                                'note: you can get this from your unit head',
+                            prefixIcon: Icon(Icons.badge_outlined),
+                          ),
+                          validator: (v) =>
+                              v!.isEmpty ? "ID is required" : null,
                         ),
-                        validator: (v) => v!.isEmpty ? "ID is required" : null,
-                      ),
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 16),
+                      ],
 
                       TextFormField(
                         controller: _orgIdController,
                         textCapitalization: TextCapitalization.characters,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: "Organization / Unit Code",
                           prefixIcon: Icon(Icons.business_outlined),
-                          hintText: "e.g., 12CHAN",
+                          helperText: _selectedRole == 'cadet'
+                              ? 'note: you can get this from your unit head'
+                              : null,
                         ),
                         validator: (v) =>
                             v!.isEmpty ? "Org Code is required" : null,
@@ -238,6 +246,33 @@ class _RegisterPageState extends State<RegisterPage> {
                           ),
                         ),
                         validator: (v) => v!.length < 6 ? "Min 6 chars" : null,
+                      ),
+                      const SizedBox(height: 16),
+
+                      TextFormField(
+                        controller: _confirmPasswordController,
+                        obscureText: _isConfirmObscured,
+                        decoration: InputDecoration(
+                          labelText: "Confirm Password",
+                          prefixIcon: const Icon(Icons.lock_clock_outlined),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _isConfirmObscured
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            onPressed: () => setState(
+                              () => _isConfirmObscured = !_isConfirmObscured,
+                            ),
+                          ),
+                        ),
+                        validator: (v) {
+                          if (v!.isEmpty) return "Confirm Password is required";
+                          if (v != _passwordController.text) {
+                            return "Passwords do not match";
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 24),
 

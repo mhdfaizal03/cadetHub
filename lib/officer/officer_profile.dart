@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:ncc_cadet/models/user_model.dart';
 import 'package:ncc_cadet/authentication/login_page.dart';
-import 'package:ncc_cadet/services/auth_service.dart'; // Ensure this points to your AuthService
+import 'package:ncc_cadet/models/user_model.dart';
+import 'package:ncc_cadet/cadet/nav_bars/cadet_notification_screen.dart'; // Reusing for now
+import 'package:ncc_cadet/cadet/profile/edit_profile_screen.dart';
+import 'package:ncc_cadet/cadet/profile/help_support_screen.dart';
+import 'package:ncc_cadet/services/auth_service.dart';
+import 'package:ncc_cadet/utils/theme.dart';
 
 class OfficerProfileScreen extends StatelessWidget {
   const OfficerProfileScreen({super.key});
@@ -11,17 +15,16 @@ class OfficerProfileScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: const BackButton(color: Colors.black),
         title: const Text(
           "Officer Profile",
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
         ),
         centerTitle: true,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        automaticallyImplyLeading: false,
       ),
       body: FutureBuilder<UserModel?>(
-        // Fetches the profile from the currently logged-in user's Firestore document
         future: AuthService().getUserProfile(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -33,164 +36,178 @@ class OfficerProfileScreen extends StatelessWidget {
           }
 
           final profile = snapshot.data!;
-          // convert from model to map since the UI expects a map here to reuse old code or just use the model directly
-          // The getUserProfile() returns UserModel?, but the UI code below expects a Map (profile['name']).
-          // Let's check getUserProfile return type in AuthService.
-          // Wait, AuthService.getUserProfile() returns Future<UserModel?>.
-          // The code below tries to access it like a Map: profile['name'].
-          // This will break. I need to convert the UserModel to Map or update the UI to use UserModel.
-          // Changing to use UserModel is cleaner.
-          // Let's modify the FutureBuilder type and the UI accessors.
 
-          return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                children: [
-                  // Main Profile Card
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 30,
-                      horizontal: 20,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade100),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.02),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        // Profile Image
-                        CircleAvatar(
-                          radius: 55,
-                          backgroundColor: const Color(0xFF1D5CFF),
-                          child: CircleAvatar(
-                            radius: 52,
-                            backgroundImage: NetworkImage(
-                              'https://placeholder.com/user_image',
-                            ),
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                // Profile Card
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.grey.shade100),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.navyBlue.withOpacity(0.05),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 50,
+                        backgroundColor: AppTheme.navyBlue,
+                        child: CircleAvatar(
+                          radius: 47,
+                          backgroundColor: Colors.white,
+                          child: Icon(
+                            Icons.local_police, // Officer Icon
+                            size: 50,
+                            color: AppTheme.navyBlue,
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        Text(
-                          profile.name,
-                          style: const TextStyle(
-                            fontSize: 22,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        profile.name,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.navyBlue,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.gold.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          "Officer",
+                          style: TextStyle(
+                            color: AppTheme.navyBlue,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF1D5CFF),
+                            fontSize: 12,
                           ),
                         ),
-                        Text(
-                          profile.roleId,
-                          style: const TextStyle(
-                            color: Colors.grey,
-                            fontSize: 14,
+                      ),
+                      const SizedBox(height: 24),
+                      const Divider(),
+                      const SizedBox(height: 24),
+
+                      // Details Grid
+                      Row(
+                        children: [
+                          _buildDetailItem(
+                            "Unit Code",
+                            profile.organizationId,
+                            Icons.verified_user_outlined,
                           ),
-                        ),
-                        const SizedBox(height: 30),
-
-                        // Officer Details Row
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            // Using 'designation' and 'unit' from Firestore
-                            _buildInfoColumn(
-                              "Designation",
-                              "N/A", // profile.designation if it existed
-                            ),
-                            Container(
-                              width: 1,
-                              height: 40,
-                              color: Colors.grey.shade200,
-                            ),
-                            _buildInfoColumn("Unit", "N/A"),
-                          ],
-                        ),
-                        const SizedBox(height: 30),
-
-                        // Department and Status Row
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _buildInfoColumn("Department", "Admin"),
-                            Container(
-                              width: 1,
-                              height: 40,
-                              color: Colors.grey.shade200,
-                            ),
-                            _buildInfoColumn("Email", profile.email),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Spacer(),
-
-                  // Action Buttons
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () {
-                        // Logic for editing profile or account settings
-                      },
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.grey.shade300),
-                        padding: const EdgeInsets.symmetric(vertical: 15),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                          _buildDetailItem(
+                            "Status",
+                            "Active", // Assuming active if logged in
+                            Icons.check_circle_outline,
+                          ),
+                        ],
                       ),
-                      child: const Text(
-                        "Account Settings",
-                        style: TextStyle(
-                          color: Colors.black87,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          _buildDetailItem(
+                            "Email",
+                            profile.email,
+                            Icons.email_outlined,
+                            isFullWidth: true,
+                          ),
+                        ],
                       ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () async {
-                        // Integration with your AuthService logout logic
-                        await AuthService().logout();
+                ),
+
+                const SizedBox(height: 30),
+
+                // Settings & Actions
+                _buildActionTile(
+                  title: "Edit Profile",
+                  icon: Icons.edit_outlined,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => EditProfileScreen(user: profile),
+                      ),
+                    ).then((_) => (context as Element).markNeedsBuild());
+                  },
+                ),
+                _buildActionTile(
+                  title: "Notifications",
+                  icon: Icons.notifications_outlined,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CadetNotificationsScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildActionTile(
+                  title: "Help & Support",
+                  icon: Icons.headset_mic_outlined,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const HelpSupportScreen(),
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 30),
+
+                // Logout Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      await AuthService().logout();
+                      if (context.mounted) {
                         Navigator.pushAndRemoveUntil(
                           context,
-                          MaterialPageRoute(builder: (context) => LoginPage()),
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                const LoginPage(initialRole: 'officer'),
+                          ),
                           (route) => false,
                         );
-                      },
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(
-                          color: Colors.redAccent,
-                          width: 1.2,
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 15),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text(
-                        "Logout",
-                        style: TextStyle(
-                          color: Colors.redAccent,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade50,
+                      foregroundColor: Colors.red,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
+                    child: const Text(
+                      "Logout",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           );
         },
@@ -198,29 +215,73 @@ class OfficerProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoColumn(String label, String value, {Color? valueColor}) {
+  Widget _buildDetailItem(
+    String label,
+    String value,
+    IconData icon, {
+    bool isFullWidth = false,
+  }) {
     return Expanded(
-      child: Column(
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.grey,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
+      flex: isFullWidth ? 1 : 1,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppTheme.lightGrey,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 20, color: AppTheme.navyBlue.withOpacity(0.7)),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: valueColor ?? Colors.black87,
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: AppTheme.navyBlue,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionTile({
+    required String title,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: ListTile(
+        onTap: onTap,
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppTheme.lightGrey,
+            borderRadius: BorderRadius.circular(8),
           ),
-        ],
+          child: Icon(icon, color: AppTheme.navyBlue, size: 20),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+        ),
+        trailing: Icon(Icons.chevron_right, color: Colors.grey.shade400),
       ),
     );
   }

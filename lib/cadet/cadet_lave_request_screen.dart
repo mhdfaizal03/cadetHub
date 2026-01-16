@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ncc_cadet/models/leave_model.dart';
 import 'package:ncc_cadet/providers/user_provider.dart';
 import 'package:ncc_cadet/services/leave_service.dart';
+import 'package:ncc_cadet/utils/theme.dart'; // Import AppTheme
 import 'package:provider/provider.dart';
 
 class CadetLeaveRequestScreen extends StatefulWidget {
@@ -13,17 +14,14 @@ class CadetLeaveRequestScreen extends StatefulWidget {
 }
 
 class _CadetLeaveRequestScreenState extends State<CadetLeaveRequestScreen> {
-  // Controllers to manage input text
-  final TextEditingController _paradeController = TextEditingController(
-    text: "Annual Training Camp Parade",
-  );
+  // Controllers
   final TextEditingController _fromDateController = TextEditingController();
   final TextEditingController _toDateController = TextEditingController();
   final TextEditingController _reasonController = TextEditingController();
+  bool _isLoading = false;
 
   @override
   void dispose() {
-    _paradeController.dispose();
     _fromDateController.dispose();
     _toDateController.dispose();
     _reasonController.dispose();
@@ -36,6 +34,23 @@ class _CadetLeaveRequestScreenState extends State<CadetLeaveRequestScreen> {
       initialDate: DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppTheme.navyBlue, // Header background color
+              onPrimary: Colors.white, // Header text color
+              onSurface: AppTheme.navyBlue, // Body text color
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.navyBlue, // Button text color
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null) {
       setState(() {
@@ -52,20 +67,25 @@ class _CadetLeaveRequestScreenState extends State<CadetLeaveRequestScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Please fill all fields"),
-          backgroundColor: Colors.red,
+          backgroundColor: AppTheme.error,
         ),
       );
       return;
     }
+
+    setState(() => _isLoading = true);
 
     try {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       final user = userProvider.user;
 
       if (user == null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("User session error")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("User session error"),
+            backgroundColor: AppTheme.error,
+          ),
+        );
         return;
       }
 
@@ -87,7 +107,10 @@ class _CadetLeaveRequestScreenState extends State<CadetLeaveRequestScreen> {
         showDialog(
           context: context,
           builder: (_) => AlertDialog(
-            title: const Text("Request Submitted"),
+            title: const Text(
+              "Request Submitted",
+              style: TextStyle(color: AppTheme.navyBlue),
+            ),
             content: const Text(
               "Your leave request has been submitted for approval.",
             ),
@@ -97,7 +120,13 @@ class _CadetLeaveRequestScreenState extends State<CadetLeaveRequestScreen> {
                   Navigator.pop(context); // Close Dialog
                   Navigator.pop(context); // Close Screen
                 },
-                child: const Text("OK"),
+                child: const Text(
+                  "OK",
+                  style: TextStyle(
+                    color: AppTheme.navyBlue,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ],
           ),
@@ -106,28 +135,27 @@ class _CadetLeaveRequestScreenState extends State<CadetLeaveRequestScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+          SnackBar(content: Text("Error: $e"), backgroundColor: AppTheme.error),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.white, // Or AppTheme.lightGrey for off-white
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.chevron_left, color: Colors.black87, size: 30),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: const BackButton(color: AppTheme.navyBlue),
         title: const Text(
           "Leave Request",
           style: TextStyle(
-            color: Colors.black87,
+            color: AppTheme.navyBlue,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -138,79 +166,118 @@ class _CadetLeaveRequestScreenState extends State<CadetLeaveRequestScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(24.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Removed Parade Name field as per typical leave requests not tied to single parade usually, or keep it optional?
-            // The mockup had it. I'll keep it but maybe it should be "Type of Leave" or just remove it if not in data model.
-            // My LeaveModel doesn't have paradeName. I'll remove it or repurpose it.
-            // Let's remove it for now to match the model.
-            _buildLabel("From Date"),
-            GestureDetector(
-              onTap: () => _selectDate(_fromDateController),
-              child: AbsorbPointer(
-                child: _buildTextField(
-                  _fromDateController,
-                  hint: "YYYY-MM-DD",
-                  icon: Icons.calendar_today,
-                ),
+            // Info Card
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.lightBlueBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.accentBlue.withOpacity(0.3)),
               ),
-            ),
-            const SizedBox(height: 20),
-
-            _buildLabel("To Date"),
-            GestureDetector(
-              onTap: () => _selectDate(_toDateController),
-              child: AbsorbPointer(
-                child: _buildTextField(
-                  _toDateController,
-                  hint: "YYYY-MM-DD",
-                  icon: Icons.calendar_today,
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            _buildLabel("Reason for Leave"),
-            _buildTextField(
-              _reasonController,
-              hint:
-                  "Please provide a detailed reason for your leave request...",
-              maxLines: 5,
-            ),
-            const SizedBox(height: 20),
-
-            const Text(
-              "*All leave requests must be submitted at least 3 days in advance.",
-              style: TextStyle(
-                color: Colors.red,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: AppTheme.accentBlue),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      "Requests must be submitted at least 3 days in advance.",
+                      style: TextStyle(
+                        color: AppTheme.navyBlue.withOpacity(0.8),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 30),
 
+            // Date Selection Row
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel("From Date"),
+                      GestureDetector(
+                        onTap: () => _selectDate(_fromDateController),
+                        child: AbsorbPointer(
+                          child: _buildTextField(
+                            _fromDateController,
+                            hint: "Select Date",
+                            icon: Icons.calendar_today_outlined,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel("To Date"),
+                      GestureDetector(
+                        onTap: () => _selectDate(_toDateController),
+                        child: AbsorbPointer(
+                          child: _buildTextField(
+                            _toDateController,
+                            hint: "Select Date",
+                            icon: Icons.event_outlined,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Reason Field
+            _buildLabel("Reason for Leave"),
+            _buildTextField(
+              _reasonController,
+              hint: "Please explain why you need leave...",
+              maxLines: 5,
+            ),
+            const SizedBox(height: 40),
+
+            // Submit Button
             SizedBox(
-              width: double.infinity,
-              height: 50,
+              height: 56,
               child: ElevatedButton(
-                onPressed: _submitLeaveRequest,
+                onPressed: _isLoading ? null : _submitLeaveRequest,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1D5CFF),
+                  backgroundColor: AppTheme.navyBlue,
+                  elevation: 2,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  "Submit Request",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text(
+                        "Submit Request",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
               ),
             ),
           ],
@@ -219,53 +286,50 @@ class _CadetLeaveRequestScreenState extends State<CadetLeaveRequestScreen> {
     );
   }
 
-  // Helper widget for input labels
   Widget _buildLabel(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
+      padding: const EdgeInsets.only(bottom: 8.0, left: 4),
       child: Text(
         text,
         style: const TextStyle(
           fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: Colors.black87,
+          fontWeight: FontWeight.w600,
+          color: AppTheme.navyBlue,
         ),
       ),
     );
   }
 
-  // Helper widget for consistent text fields
   Widget _buildTextField(
     TextEditingController controller, {
     String? hint,
-    bool readOnly = false,
-    bool filled = false,
     int maxLines = 1,
     IconData? icon,
   }) {
-    return TextField(
+    return TextFormField(
       controller: controller,
-      readOnly: readOnly,
       maxLines: maxLines,
+      style: const TextStyle(color: Colors.black87),
       decoration: InputDecoration(
         hintText: hint,
-        suffixIcon: icon != null
-            ? Icon(icon, color: Colors.grey, size: 20)
-            : null,
         hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-        filled: filled,
-        fillColor: filled ? Colors.grey.shade100 : Colors.white,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 12,
+        prefixIcon: icon != null
+            ? Icon(icon, color: AppTheme.navyBlue.withOpacity(0.6), size: 20)
+            : null,
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        contentPadding: const EdgeInsets.all(16),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
         ),
         enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: Colors.grey.shade200),
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
         ),
         focusedBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: Color(0xFF1D5CFF)),
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTheme.navyBlue, width: 1.5),
         ),
       ),
     );

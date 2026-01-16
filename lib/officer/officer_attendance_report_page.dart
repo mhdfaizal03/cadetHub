@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:ncc_cadet/models/user_model.dart';
+import 'package:ncc_cadet/services/attendance_service.dart';
+import 'package:ncc_cadet/services/auth_service.dart';
+import 'package:ncc_cadet/services/parade_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
+import 'package:intl/intl.dart';
 
 class OfficerAttendanceReport extends StatefulWidget {
   const OfficerAttendanceReport({super.key});
@@ -10,96 +16,212 @@ class OfficerAttendanceReport extends StatefulWidget {
 }
 
 class _OfficerAttendanceReportState extends State<OfficerAttendanceReport> {
-  String _selectedYear = 'All';
+  final AuthService _authService = AuthService();
+  final AttendanceService _attendanceService = AttendanceService();
+  final ParadeService _paradeService = ParadeService();
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.lightGrey,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.chevron_left, color: Colors.black, size: 28),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          "Unit Attendance Report",
-          style: TextStyle(color: Colors.black),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list_outlined, color: Colors.black),
-            onPressed: () {},
+    return DefaultTabController(
+      length: 4,
+      child: Scaffold(
+        backgroundColor: AppTheme.lightGrey,
+        appBar: AppBar(
+          backgroundColor: AppTheme.navyBlue,
+          elevation: 0,
+          foregroundColor: Colors.white,
+          leading: IconButton(
+            icon: const Icon(Icons.chevron_left, color: Colors.white, size: 28),
+            onPressed: () => Navigator.pop(context),
           ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Divider(height: 1, color: Colors.grey.shade200),
+          title: const Text(
+            "Unit Attendance Report",
+            style: TextStyle(color: Colors.white),
+          ),
+          bottom: TabBar(
+            labelColor: AppTheme.accentBlue,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: AppTheme.accentBlue,
+            tabs: const [
+              Tab(text: "All"),
+              Tab(text: "1st Year"),
+              Tab(text: "2nd Year"),
+              Tab(text: "3rd Year"),
+            ],
+          ),
+        ),
+        body: FutureBuilder<UserModel?>(
+          future: _authService.getUserProfile(),
+          builder: (context, userSnapshot) {
+            if (userSnapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: AppTheme.accentBlue),
+              );
+            }
+            final officer = userSnapshot.data;
+            if (officer == null) {
+              return const Center(
+                child: Text("Error: Officer profile not found"),
+              );
+            }
+
+            return StreamBuilder<QuerySnapshot>(
+              stream: _authService.getCadetsStream(officer.organizationId),
+              builder: (context, cadetSnapshot) {
+                if (!cadetSnapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final cadets = cadetSnapshot.data!.docs;
+
+                return StreamBuilder<QuerySnapshot>(
+                  stream: _attendanceService.getOrganizationAttendance(
+                    officer.organizationId,
+                  ),
+                  builder: (context, attendanceSnapshot) {
+                    if (!attendanceSnapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final attendance = attendanceSnapshot.data!.docs;
+
+                    return StreamBuilder<QuerySnapshot>(
+                      stream: _paradeService.getParadesStream(
+                        officer.organizationId,
+                      ),
+                      builder: (context, paradeSnapshot) {
+                        if (!paradeSnapshot.hasData) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+                        final parades = paradeSnapshot.data!.docs;
+
+                        return TabBarView(
+                          children: [
+                            _buildReportContent(
+                              "All",
+                              cadets,
+                              attendance,
+                              parades,
+                            ),
+                            _buildReportContent(
+                              "1st Year",
+                              cadets,
+                              attendance,
+                              parades,
+                            ),
+                            _buildReportContent(
+                              "2nd Year",
+                              cadets,
+                              attendance,
+                              parades,
+                            ),
+                            _buildReportContent(
+                              "3rd Year",
+                              cadets,
+                              attendance,
+                              parades,
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            );
+          },
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Year Filter
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.only(bottom: 20),
-              child: Row(
-                children: ["All", "1st Year", "2nd Year", "3rd Year"].map((
-                  year,
-                ) {
-                  final isSelected = _selectedYear == year;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: FilterChip(
-                      label: Text(year),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        setState(() => _selectedYear = year);
-                      },
-                      backgroundColor: Colors.white,
-                      selectedColor: AppTheme.accentBlue.withOpacity(0.1),
-                      checkmarkColor: AppTheme.accentBlue,
-                      labelStyle: TextStyle(
-                        color: isSelected
-                            ? AppTheme.accentBlue
-                            : Colors.black87,
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
+    );
+  }
 
-            _sectionTitle("Unit Overview"),
-            const SizedBox(height: 12),
-            _buildUnitSummaryCard(),
+  Widget _buildReportContent(
+    String year,
+    List<QueryDocumentSnapshot> allCadets,
+    List<QueryDocumentSnapshot> allAttendance,
+    List<QueryDocumentSnapshot> allParades,
+  ) {
+    // 1. Filter Cadets by Year
+    final filteredCadets = year == 'All'
+        ? allCadets
+        : allCadets.where((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            return data['year'] == year;
+          }).toList();
 
-            const SizedBox(height: 28),
+    final targetCadetIds = filteredCadets.map((e) => e.id).toSet();
 
-            _sectionTitle("Status Breakdown"),
-            const SizedBox(height: 12),
-            _buildBreakdownRow(),
+    // 2. Filter Attendance by Cadet IDs (Target Group)
+    final filteredAttendance = allAttendance.where((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      return targetCadetIds.contains(data['cadetId']);
+    }).toList();
 
-            const SizedBox(height: 28),
+    // 3. Filter Parades (that have happened)
+    // We only care about past parades or today's parades for reports basically
+    final now = DateTime.now();
+    final pastParades = allParades.where((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      final dateStr = data['date'] as String;
+      // Simple string comparison works for ISO dates, but let's be safe if format varies
+      // Assuming YYYY-MM-DD from other files
+      return dateStr.compareTo(DateFormat('yyyy-MM-dd').format(now)) <= 0;
+    }).toList();
 
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _sectionTitle("Recent Parades"),
-                TextButton(onPressed: () {}, child: const Text("View All")),
-              ],
-            ),
-            const SizedBox(height: 8),
-            _buildParadeList(),
-          ],
-        ),
+    // Re-sort past parades descending (most recent first)
+    pastParades.sort((a, b) {
+      final dA = (a.data() as Map<String, dynamic>)['date'];
+      final dB = (b.data() as Map<String, dynamic>)['date'];
+      return dB.compareTo(dA);
+    });
+
+    // 4. Calculate Stats
+    final totalRecords = filteredAttendance.length;
+    final presentCount = filteredAttendance
+        .where(
+          (doc) => (doc.data() as Map<String, dynamic>)['status'] == 'Present',
+        )
+        .length;
+    final absentCount = filteredAttendance
+        .where(
+          (doc) => (doc.data() as Map<String, dynamic>)['status'] == 'Absent',
+        )
+        .length;
+    final excusedCount = filteredAttendance
+        .where(
+          (doc) => (doc.data() as Map<String, dynamic>)['status'] == 'Excused',
+        )
+        .length;
+
+    final double avgAttendance = totalRecords == 0
+        ? 0.0
+        : (presentCount / totalRecords);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle("Unit Overview ($year)"),
+          const SizedBox(height: 12),
+          _buildUnitSummaryCard(avgAttendance),
+          const SizedBox(height: 28),
+
+          _sectionTitle("Status Breakdown"),
+          const SizedBox(height: 12),
+          _buildBreakdownRow(presentCount, absentCount, excusedCount),
+          const SizedBox(height: 28),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _sectionTitle("Recent Parades"),
+              // TextButton(onPressed: () {}, child: const Text("View All")),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _buildParadeList(pastParades, filteredAttendance, targetCadetIds),
+        ],
       ),
     );
   }
@@ -117,7 +239,8 @@ class _OfficerAttendanceReportState extends State<OfficerAttendanceReport> {
     );
   }
 
-  Widget _buildUnitSummaryCard() {
+  Widget _buildUnitSummaryCard(double percentage) {
+    final percString = "${(percentage * 100).toStringAsFixed(1)}%";
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: _cardStyle(),
@@ -126,17 +249,17 @@ class _OfficerAttendanceReportState extends State<OfficerAttendanceReport> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     "Average Attendance",
                     style: TextStyle(color: Colors.grey, fontSize: 14),
                   ),
-                  SizedBox(height: 6),
+                  const SizedBox(height: 6),
                   Text(
-                    "94.2%",
-                    style: TextStyle(
+                    percString,
+                    style: const TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.accentBlue,
@@ -161,11 +284,11 @@ class _OfficerAttendanceReportState extends State<OfficerAttendanceReport> {
           const SizedBox(height: 18),
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: const LinearProgressIndicator(
-              value: 0.942,
+            child: LinearProgressIndicator(
+              value: percentage,
               minHeight: 8,
               backgroundColor: AppTheme.lightBlueBg,
-              valueColor: AlwaysStoppedAnimation(AppTheme.accentBlue),
+              valueColor: const AlwaysStoppedAnimation(AppTheme.accentBlue),
             ),
           ),
         ],
@@ -173,14 +296,14 @@ class _OfficerAttendanceReportState extends State<OfficerAttendanceReport> {
     );
   }
 
-  Widget _buildBreakdownRow() {
+  Widget _buildBreakdownRow(int present, int absent, int excused) {
     return Row(
       children: [
-        _buildSmallStatCard("Present", "228", Colors.green),
+        _buildSmallStatCard("Present", "$present", Colors.green),
         const SizedBox(width: 12),
-        _buildSmallStatCard("Absent", "12", Colors.red),
+        _buildSmallStatCard("Absent", "$absent", Colors.red),
         const SizedBox(width: 12),
-        _buildSmallStatCard("On Leave", "05", Colors.orange),
+        _buildSmallStatCard("On Leave", "$excused", Colors.orange),
       ],
     );
   }
@@ -215,20 +338,53 @@ class _OfficerAttendanceReportState extends State<OfficerAttendanceReport> {
     );
   }
 
-  Widget _buildParadeList() {
-    final sessions = [
-      {"name": "Weekly Drill", "date": "2024-10-20", "perc": "96%"},
-      {"name": "Physical Training", "date": "2024-10-18", "perc": "92%"},
-      {"name": "Theory Class", "date": "2024-10-15", "perc": "95%"},
-    ];
+  Widget _buildParadeList(
+    List<QueryDocumentSnapshot> parades,
+    List<QueryDocumentSnapshot> attendanceRecords,
+    Set<String> targetCadetIds,
+  ) {
+    if (parades.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20.0),
+          child: Text("No recent parades found"),
+        ),
+      );
+    }
+
+    // Limit to latest 5
+    final recentParades = parades.take(5).toList();
 
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: sessions.length,
+      itemCount: recentParades.length,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        final item = sessions[index];
+        final paradeDoc = recentParades[index];
+        final paradeData = paradeDoc.data() as Map<String, dynamic>;
+        final paradeId = paradeDoc.id;
+
+        // Calculate stats for this specific parade & year group
+        // Filter records for this parade AND our target cadets
+        final paradeRecords = attendanceRecords.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return data['paradeId'] == paradeId;
+        }).toList();
+
+        final total = paradeRecords.length;
+        final present = paradeRecords
+            .where(
+              (doc) =>
+                  (doc.data() as Map<String, dynamic>)['status'] == 'Present',
+            )
+            .length;
+
+        // If no records found for this parade (attendance not taken), show N/A
+        final percString = total == 0
+            ? "N/A"
+            : "${((present / total) * 100).toStringAsFixed(0)}%";
+
         return Container(
           decoration: _cardStyle(),
           child: ListTile(
@@ -237,28 +393,28 @@ class _OfficerAttendanceReportState extends State<OfficerAttendanceReport> {
               vertical: 6,
             ),
             title: Text(
-              item['name']!,
+              paradeData['name'] ?? 'Parade',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             subtitle: Text(
-              item['date']!,
+              paradeData['date'] ?? '',
               style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  item['perc']!,
+                  percString,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
                 ),
-                const SizedBox(width: 6),
-                const Icon(Icons.chevron_right, color: Colors.grey),
+                // const SizedBox(width: 6),
+                // const Icon(Icons.chevron_right, color: Colors.grey),
               ],
             ),
-            onTap: () {},
+            // onTap: () {},
           ),
         );
       },

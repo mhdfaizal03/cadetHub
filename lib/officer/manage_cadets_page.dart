@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:ncc_cadet/officer/addedit_cadet_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ncc_cadet/services/auth_service.dart';
+import 'package:ncc_cadet/utils/theme.dart';
 
 class ManageCadetsPage extends StatefulWidget {
   const ManageCadetsPage({super.key});
@@ -14,179 +15,167 @@ class ManageCadetsPage extends StatefulWidget {
 class _ManageCadetsPageState extends State<ManageCadetsPage> {
   final AuthService _authService = AuthService();
   String _searchQuery = "";
-  String _selectedYear = "All"; // Filter state
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9F9F9),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.chevron_left, color: Colors.black, size: 28),
-          onPressed: () => Navigator.pop(context),
+    return DefaultTabController(
+      length: 4,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF9F9F9),
+        appBar: AppBar(
+          foregroundColor: Colors.white,
+          backgroundColor: AppTheme.navyBlue,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.chevron_left, color: Colors.white, size: 28),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: const Text("Manage Cadets"),
+          bottom: TabBar(
+            labelColor: AppTheme.accentBlue,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: AppTheme.accentBlue,
+            // isScrollable: true,
+            tabs: const [
+              Tab(text: "All"),
+              Tab(text: "1st Year"),
+              Tab(text: "2nd Year"),
+              Tab(text: "3rd Year"),
+            ],
+          ),
         ),
-        title: const Text(
-          "Manage Cadets",
-          style: TextStyle(color: Colors.black),
-        ),
-      ),
-      body: FutureBuilder<UserModel?>(
-        future: _authService.getUserProfile(),
-        builder: (context, userSnapshot) {
-          if (userSnapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+        body: FutureBuilder<UserModel?>(
+          future: _authService.getUserProfile(),
+          builder: (context, userSnapshot) {
+            if (userSnapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          final officer = userSnapshot.data;
-          if (officer == null) {
-            return const Center(child: Text("Officer profile not found"));
-          }
+            final officer = userSnapshot.data;
+            if (officer == null) {
+              return const Center(child: Text("Officer profile not found"));
+            }
 
-          return StreamBuilder<QuerySnapshot>(
-            stream: _authService.getCadetsStream(officer.organizationId),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
+            return StreamBuilder<QuerySnapshot>(
+              stream: _authService.getCadetsStream(officer.organizationId),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const Center(
-                  child: Text("No cadets found in this unit."),
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(
+                    child: Text("No cadets found in this unit."),
+                  );
+                }
+
+                var allDocs = snapshot.data!.docs;
+
+                return TabBarView(
+                  children: [
+                    _buildCadetList(allDocs, "All"),
+                    _buildCadetList(allDocs, "1st Year"),
+                    _buildCadetList(allDocs, "2nd Year"),
+                    _buildCadetList(allDocs, "3rd Year"),
+                  ],
                 );
-              }
-
-              var docs = snapshot.data!.docs;
-
-              // Year Filtering
-              if (_selectedYear != "All") {
-                docs = docs.where((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  return data['year'] == _selectedYear;
-                }).toList();
-              }
-
-              // Local Search Filtering
-              if (_searchQuery.isNotEmpty) {
-                docs = docs.where((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  final name = (data['name'] ?? '').toString().toLowerCase();
-                  final id = (data['cadetId'] ?? '').toString().toLowerCase();
-                  return name.contains(_searchQuery.toLowerCase()) ||
-                      id.contains(_searchQuery.toLowerCase());
-                }).toList();
-              }
-
-              return Column(
-                children: [
-                  // 1. Filter Chips (Year)
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                    child: Row(
-                      children: ["All", "1st Year", "2nd Year", "3rd Year"].map(
-                        (year) {
-                          final isSelected = _selectedYear == year;
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
-                            child: FilterChip(
-                              label: Text(year),
-                              selected: isSelected,
-                              onSelected: (selected) {
-                                setState(() => _selectedYear = year);
-                              },
-                              backgroundColor: Colors.white,
-                              selectedColor: Colors.blue.shade100,
-                              checkmarkColor: Colors.blue,
-                              labelStyle: TextStyle(
-                                color: isSelected
-                                    ? Colors.blue
-                                    : Colors.black87,
-                                fontWeight: isSelected
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                              ),
-                            ),
-                          );
-                        },
-                      ).toList(),
-                    ),
-                  ),
-
-                  // 2. Search Section
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: TextField(
-                      onChanged: (val) => setState(() => _searchQuery = val),
-                      decoration: InputDecoration(
-                        hintText: "Search cadets by name or ID...",
-                        prefixIcon: const Icon(
-                          Icons.search,
-                          color: Colors.grey,
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey.shade200),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.blue),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // 2. Counts
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Row(
-                      children: [
-                        Text(
-                          "Total Cadets: ${docs.length}",
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // 3. List
-                  Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: docs.length,
-                      itemBuilder: (context, index) {
-                        final doc = docs[index];
-                        final data = doc.data() as Map<String, dynamic>;
-                        final uid = doc.id;
-
-                        return _buildCadetCard(uid, data, context);
-                      },
-                    ),
-                  ),
-                ],
-              );
-            },
-          );
-        },
+              },
+            );
+          },
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            // Navigate to add/edit page with null data (Add mode)
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const AddEditCadetPage()),
+            );
+          },
+          backgroundColor: Colors.blue,
+          child: const Icon(Icons.add, color: Colors.white, size: 30),
+        ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Navigate to add/edit page with null data (Add mode)
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddEditCadetPage()),
-          );
-        },
-        backgroundColor: Colors.blue,
-        child: const Icon(Icons.add, color: Colors.white, size: 30),
-      ),
+    );
+  }
+
+  Widget _buildCadetList(List<QueryDocumentSnapshot> docs, String year) {
+    // 1. Year Filtering
+    var filteredDocs = year == "All"
+        ? docs
+        : docs.where((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            return data['year'] == year;
+          }).toList();
+
+    // 2. Local Search Filtering
+    if (_searchQuery.isNotEmpty) {
+      filteredDocs = filteredDocs.where((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        final name = (data['name'] ?? '').toString().toLowerCase();
+        final id = (data['cadetId'] ?? '').toString().toLowerCase();
+        return name.contains(_searchQuery.toLowerCase()) ||
+            id.contains(_searchQuery.toLowerCase());
+      }).toList();
+    }
+
+    return Column(
+      children: [
+        // Search Section
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: TextField(
+            onChanged: (val) => setState(() => _searchQuery = val),
+            decoration: InputDecoration(
+              hintText: "Search cadets by name or ID...",
+              prefixIcon: const Icon(Icons.search, color: Colors.grey),
+              filled: true,
+              fillColor: Colors.white,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey.shade200),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Colors.blue),
+              ),
+            ),
+          ),
+        ),
+
+        // Counts
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Row(
+            children: [
+              Text(
+                "Total Cadets ($year): ${filteredDocs.length}",
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        // List
+        Expanded(
+          child: filteredDocs.isEmpty
+              ? Center(child: Text("No $year cadets found"))
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: filteredDocs.length,
+                  itemBuilder: (context, index) {
+                    final doc = filteredDocs[index];
+                    final data = doc.data() as Map<String, dynamic>;
+                    final uid = doc.id;
+
+                    return _buildCadetCard(uid, data, context);
+                  },
+                ),
+        ),
+      ],
     );
   }
 
@@ -202,6 +191,7 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
         ? 'Active'
         : (data['status'] == 0 ? 'Pending' : 'Inactive');
     final isActive = data['status'] == 1;
+    final year = data['year'] ?? '1st Year';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -241,6 +231,12 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
                       status,
                       isActive ? Colors.green.shade50 : Colors.orange.shade50,
                       isActive ? Colors.green : Colors.orange,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildBadge(
+                      year,
+                      Colors.blue.shade50,
+                      Colors.blue.shade700,
                     ),
                   ],
                 ),

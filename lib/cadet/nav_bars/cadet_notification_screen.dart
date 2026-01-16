@@ -26,16 +26,10 @@ class CadetNotificationsScreen extends StatelessWidget {
         ),
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: const BackButton(color: Colors.black),
+        automaticallyImplyLeading: false,
         centerTitle: true,
       ),
       body: StreamBuilder<QuerySnapshot>(
-        // For simplicity and avoiding index issues, let's just fetch organization notifications for now.
-        // Or we can try the OR query. If it fails, we fall back.
-        // Let's use a simple query for Organization notifications first as that covers 90% use case.
-        // Actually, let's try to get both by just fetching ALL for org and filtering client side if needed?
-        // No, that's inefficient.
-        // Let's just use the service method I wrote. If it errors, I'll know.
         stream: NotificationService().getNotifications(
           user.organizationId,
           user.uid,
@@ -50,51 +44,63 @@ class CadetNotificationsScreen extends StatelessWidget {
           }
 
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.notifications_none_outlined,
-                    size: 64,
-                    color: Colors.grey,
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    "No new notifications",
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ],
-              ),
-            );
+            return _buildEmptyState();
           }
 
-          final notifications = snapshot.data!.docs.map((doc) {
+          // 1. Map to Model
+          final allNotifications = snapshot.data!.docs.map((doc) {
             return NotificationModel.fromMap(
               doc.data() as Map<String, dynamic>,
               doc.id,
             );
           }).toList();
 
-          // Client-side sort if needed
-          notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          // 2. Filter by Year
+          final filteredNotifications = allNotifications.where((n) {
+            // Include if targetYear is 'All' OR matches user's year
+            // Also include if it's a personal notification (often type='cadet') where targetYear might not be irrelevant or set to All.
+            // Assuming personal notifications might have targetYear='All' or null safe.
+            // Safest: check if targetYear matches.
+            return n.targetYear == 'All' || n.targetYear == user.year;
+          }).toList();
+
+          // 3. Sort
+          filteredNotifications.sort(
+            (a, b) => b.createdAt.compareTo(a.createdAt),
+          );
+
+          if (filteredNotifications.isEmpty) {
+            return _buildEmptyState();
+          }
 
           return ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: notifications.length,
+            itemCount: filteredNotifications.length,
             itemBuilder: (context, index) {
-              final notification = notifications[index];
+              final notification = filteredNotifications[index];
               return _NotificationTile(
                 title: notification.title,
                 date: DateFormat('MMM d, y').format(notification.createdAt),
                 desc: notification.message,
-                isImportant:
-                    notification.type ==
-                    'organization', // Highlight org announcements
+                isImportant: notification.type == 'organization',
+                targetYear: notification.targetYear,
               );
             },
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.notifications_none_outlined, size: 64, color: Colors.grey),
+          SizedBox(height: 16),
+          Text("No new notifications", style: TextStyle(color: Colors.grey)),
+        ],
       ),
     );
   }
@@ -103,12 +109,14 @@ class CadetNotificationsScreen extends StatelessWidget {
 class _NotificationTile extends StatelessWidget {
   final String title, date, desc;
   final bool isImportant;
+  final String targetYear;
 
   const _NotificationTile({
     required this.title,
     required this.date,
     required this.desc,
     this.isImportant = false,
+    required this.targetYear,
   });
 
   @override
@@ -144,25 +152,49 @@ class _NotificationTile extends StatelessWidget {
                   ),
                 ),
               ),
-              if (isImportant)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.blue,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    "Official",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+              Row(
+                children: [
+                  if (targetYear != 'All')
+                    Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        targetYear,
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
+                  if (isImportant)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.blue,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        "Official",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 4),

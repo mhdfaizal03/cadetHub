@@ -21,6 +21,8 @@ class _AddEditCampScreenState extends State<AddEditCampScreen> {
   late TextEditingController _endDateController;
   late TextEditingController _descriptionController;
 
+  String _targetYear = 'All'; // Default
+
   @override
   void initState() {
     super.initState();
@@ -37,6 +39,7 @@ class _AddEditCampScreenState extends State<AddEditCampScreen> {
     _descriptionController = TextEditingController(
       text: widget.camp?.description ?? '',
     );
+    _targetYear = widget.camp?.targetYear ?? 'All';
   }
 
   @override
@@ -55,6 +58,23 @@ class _AddEditCampScreenState extends State<AddEditCampScreen> {
       initialDate: DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppTheme.navyBlue, // Header background color
+              onPrimary: Colors.white, // Header text color
+              onSurface: Colors.black, // Body text color
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.navyBlue, // Button text color
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null) {
       setState(() {
@@ -84,6 +104,7 @@ class _AddEditCampScreenState extends State<AddEditCampScreen> {
         endDate: _endDateController.text,
         description: _descriptionController.text.trim(),
         organizationId: user.organizationId,
+        targetYear: _targetYear,
         createdAt: widget.camp?.createdAt ?? DateTime.now(),
       );
 
@@ -95,7 +116,10 @@ class _AddEditCampScreenState extends State<AddEditCampScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Camp saved successfully")),
+          const SnackBar(
+            content: Text("Camp saved successfully"),
+            backgroundColor: Colors.green,
+          ),
         );
         Navigator.pop(context);
       }
@@ -111,15 +135,16 @@ class _AddEditCampScreenState extends State<AddEditCampScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: Text(
           widget.camp == null ? "Add Camp" : "Edit Camp",
-          style: const TextStyle(color: Colors.black),
+          style: const TextStyle(color: Colors.white),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: AppTheme.navyBlue,
         elevation: 0,
-        leading: const BackButton(color: Colors.black),
+        leading: const BackButton(color: Colors.white),
+        centerTitle: true,
         actions: [
           TextButton(
             onPressed: _saveCamp,
@@ -127,12 +152,11 @@ class _AddEditCampScreenState extends State<AddEditCampScreen> {
               "SAVE",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: AppTheme.navyBlue,
+                color: AppTheme.accentBlue,
               ),
             ),
           ),
         ],
-        centerTitle: true,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -141,17 +165,21 @@ class _AddEditCampScreenState extends State<AddEditCampScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextFormField(
+              _buildSectionTitle("Camp Details"),
+              const SizedBox(height: 16),
+              _buildTextField(
                 controller: _nameController,
-                decoration: _inputDecoration("Camp Name"),
-                validator: (v) => v!.isEmpty ? "Required" : null,
+                label: "Camp Name",
+                icon: Icons.flag_outlined,
               ),
               const SizedBox(height: 16),
-              TextFormField(
+              _buildTextField(
                 controller: _locationController,
-                decoration: _inputDecoration("Location"),
-                validator: (v) => v!.isEmpty ? "Required" : null,
+                label: "Location",
+                icon: Icons.location_on_outlined,
               ),
+              const SizedBox(height: 16),
+              _buildTargetYearDropdown(), // Target Year Dropdown
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -159,13 +187,10 @@ class _AddEditCampScreenState extends State<AddEditCampScreen> {
                     child: GestureDetector(
                       onTap: () => _selectDate(_startDateController),
                       child: AbsorbPointer(
-                        child: TextFormField(
+                        child: _buildTextField(
                           controller: _startDateController,
-                          decoration: _inputDecoration(
-                            "Start Date",
-                            icon: Icons.calendar_today,
-                          ),
-                          validator: (v) => v!.isEmpty ? "Required" : null,
+                          label: "Start Date",
+                          icon: Icons.calendar_today,
                         ),
                       ),
                     ),
@@ -175,25 +200,24 @@ class _AddEditCampScreenState extends State<AddEditCampScreen> {
                     child: GestureDetector(
                       onTap: () => _selectDate(_endDateController),
                       child: AbsorbPointer(
-                        child: TextFormField(
+                        child: _buildTextField(
                           controller: _endDateController,
-                          decoration: _inputDecoration(
-                            "End Date",
-                            icon: Icons.calendar_today,
-                          ),
-                          validator: (v) => v!.isEmpty ? "Required" : null,
+                          label: "End Date",
+                          icon: Icons.calendar_today,
                         ),
                       ),
                     ),
                   ),
                 ],
               ),
+              const SizedBox(height: 24),
+              _buildSectionTitle("Additional Info"),
               const SizedBox(height: 16),
-              TextFormField(
+              _buildTextField(
                 controller: _descriptionController,
-                decoration: _inputDecoration("Description"),
+                label: "Description",
+                icon: Icons.description_outlined,
                 maxLines: 5,
-                validator: (v) => v!.isEmpty ? "Required" : null,
               ),
             ],
           ),
@@ -202,12 +226,73 @@ class _AddEditCampScreenState extends State<AddEditCampScreen> {
     );
   }
 
-  InputDecoration _inputDecoration(String label, {IconData? icon}) {
-    return InputDecoration(
-      labelText: label,
-      suffixIcon: icon != null ? Icon(icon, size: 20) : null,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+        color: AppTheme.navyBlue,
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    IconData? icon,
+    int maxLines = 1,
+  }) {
+    return TextFormField(
+      controller: controller,
+      maxLines: maxLines,
+      validator: (v) => v!.isEmpty ? "Required" : null,
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: Colors.grey.shade600),
+        prefixIcon: icon != null ? Icon(icon, color: AppTheme.navyBlue) : null,
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTheme.navyBlue, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTargetYearDropdown() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: DropdownButtonFormField<String>(
+        value: _targetYear,
+        decoration: const InputDecoration(
+          labelText: "Target Audience",
+          border: InputBorder.none,
+          prefixIcon: Icon(Icons.people_outline, color: AppTheme.navyBlue),
+        ),
+        items: ['All', '1st Year', '2nd Year', '3rd Year']
+            .map((label) => DropdownMenuItem(value: label, child: Text(label)))
+            .toList(),
+        onChanged: (val) => setState(() => _targetYear = val!),
+      ),
     );
   }
 }

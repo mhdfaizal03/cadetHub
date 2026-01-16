@@ -2,90 +2,137 @@ import 'package:ncc_cadet/models/user_model.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ncc_cadet/services/auth_service.dart';
+import 'package:ncc_cadet/utils/theme.dart';
 
-class ApproveCadetPage extends StatelessWidget {
+class ApproveCadetPage extends StatefulWidget {
   const ApproveCadetPage({super.key});
 
-  static const primaryColor = Color(0xFF1D5CFF);
+  @override
+  State<ApproveCadetPage> createState() => _ApproveCadetPageState();
+}
 
+class _ApproveCadetPageState extends State<ApproveCadetPage> {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.chevron_left, size: 28),
-          onPressed: () => Navigator.pop(context),
+    return DefaultTabController(
+      length: 4,
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.chevron_left, size: 28),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: const Text("Approve Cadets"),
+          bottom: TabBar(
+            labelColor: AppTheme.accentBlue,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: AppTheme.accentBlue,
+            tabs: const [
+              Tab(text: "All"),
+              Tab(text: "1st Year"),
+              Tab(text: "2nd Year"),
+              Tab(text: "3rd Year"),
+            ],
+          ),
         ),
-        title: const Text("Approve Cadets"),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Divider(color: Colors.grey.shade200, height: 1),
-        ),
-      ),
-      body: FutureBuilder<UserModel?>(
-        // Fetch current officer's profile to get organizationId
-        future: AuthService().getUserProfile(),
-        builder: (context, userSnapshot) {
-          if (userSnapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: primaryColor),
-            );
-          }
-
-          final officer = userSnapshot.data;
-
-          if (officer == null) {
-            return const Center(child: Text("Error fetching officer profile"));
-          }
-
-          return StreamBuilder<QuerySnapshot>(
-            // Use the organizationId to filter pending cadets
-            stream: AuthService().pendingCadets(officer.organizationId),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(
-                  child: CircularProgressIndicator(color: primaryColor),
-                );
-              }
-
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.person_search_outlined,
-                        size: 64,
-                        color: Colors.grey.shade300,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        "No pending requests for ${officer.organizationId}",
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              return ListView.builder(
-                padding: const EdgeInsets.all(20),
-                itemCount: snapshot.data!.docs.length,
-                itemBuilder: (context, index) {
-                  final doc = snapshot.data!.docs[index];
-                  final data = doc.data() as Map<String, dynamic>;
-
-                  return _buildPendingCadetCard(context, doc.id, data);
-                },
+        body: FutureBuilder<UserModel?>(
+          // Fetch current officer's profile to get organizationId
+          future: AuthService().getUserProfile(),
+          builder: (context, userSnapshot) {
+            if (userSnapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: AppTheme.accentBlue),
               );
-            },
-          );
-        },
+            }
+
+            final officer = userSnapshot.data;
+
+            if (officer == null) {
+              return const Center(
+                child: Text("Error fetching officer profile"),
+              );
+            }
+
+            return StreamBuilder<QuerySnapshot>(
+              // Use the organizationId to filter pending cadets
+              stream: AuthService().pendingCadets(officer.organizationId),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: AppTheme.accentBlue,
+                    ),
+                  );
+                }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.person_search_outlined,
+                          size: 64,
+                          color: Colors.grey.shade300,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          "No pending requests for ${officer.organizationId}",
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final allDocs = snapshot.data!.docs;
+
+                return TabBarView(
+                  children: [
+                    _buildCadetList(allDocs, "All"),
+                    _buildCadetList(allDocs, "1st Year"),
+                    _buildCadetList(allDocs, "2nd Year"),
+                    _buildCadetList(allDocs, "3rd Year"),
+                  ],
+                );
+              },
+            );
+          },
+        ),
       ),
+    );
+  }
+
+  Widget _buildCadetList(List<QueryDocumentSnapshot> allDocs, String year) {
+    // Filter docs based on year
+    final filteredDocs = year == "All"
+        ? allDocs
+        : allDocs.where((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            return data['year'] == year;
+          }).toList();
+
+    if (filteredDocs.isEmpty) {
+      return Center(
+        child: Text(
+          "No pending requests for $year",
+          style: const TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(20),
+      itemCount: filteredDocs.length,
+      itemBuilder: (context, index) {
+        final doc = filteredDocs[index];
+        final data = doc.data() as Map<String, dynamic>;
+        return _buildPendingCadetCard(context, doc.id, data);
+      },
     );
   }
 
@@ -103,8 +150,8 @@ class ApproveCadetPage extends StatelessWidget {
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 8,
+            color: AppTheme.navyBlue.withOpacity(0.04),
+            blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
@@ -130,6 +177,25 @@ class ApproveCadetPage extends StatelessWidget {
                     Text(
                       "Cadet ID: ${data['cadetId'] ?? 'N/A'}",
                       style: const TextStyle(color: Colors.grey, fontSize: 13),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        data['year'] ?? '1st Year',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.blue.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -164,7 +230,7 @@ class ApproveCadetPage extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: () => AuthService().updateCadetStatus(docId, 1),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
+                    backgroundColor: AppTheme.accentBlue,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:ncc_cadet/officer/approve_cadet_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:ncc_cadet/cadet/nav_bars/cadet_notification_screen.dart';
 
@@ -236,6 +237,13 @@ class OfficerDashboardScreen extends StatelessWidget {
                     Icons.report_problem_outlined,
                     const OfficerComplaintListScreen(),
                     7,
+                  ),
+                  _buildAction(
+                    context,
+                    "Approve Cadets",
+                    Icons.approval_outlined,
+                    const ApproveCadetPage(),
+                    8,
                   ),
                 ],
               ),
