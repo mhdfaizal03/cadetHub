@@ -29,34 +29,38 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   Future<void> requestPermission() async {
-    NotificationSettings settings = await _firebaseMessaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    try {
+      NotificationSettings settings = await _firebaseMessaging
+          .requestPermission(alert: true, badge: true, sound: true);
 
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      debugPrint('User granted permission');
-    } else if (settings.authorizationStatus ==
-        AuthorizationStatus.provisional) {
-      debugPrint('User granted provisional permission');
-    } else {
-      debugPrint('User declined or has not accepted permission');
+      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+        debugPrint('User granted permission');
+      } else if (settings.authorizationStatus ==
+          AuthorizationStatus.provisional) {
+        debugPrint('User granted provisional permission');
+      } else {
+        debugPrint('User declined or has not accepted permission');
+      }
+    } catch (e) {
+      debugPrint("Error requesting notification permission: $e");
     }
   }
 
   Future<void> initialize() async {
     try {
-      // 1. Request Permission
+      // 1. Request Permission (Safe call)
       await requestPermission();
 
       // 2. Set Background Handler
-      // On Web, this is handled by the SW, but registering it here is fine/noop or good for mobile
-      FirebaseMessaging.onBackgroundMessage(
-        _firebaseMessagingBackgroundHandler,
-      );
+      try {
+        FirebaseMessaging.onBackgroundMessage(
+          _firebaseMessagingBackgroundHandler,
+        );
+      } catch (e) {
+        debugPrint("Error setting background handler: $e");
+      }
 
-      // 3. Initialize Local Notifications (for foreground)
+      // 3. Initialize Local Notifications
       const AndroidInitializationSettings initializationSettingsAndroid =
           AndroidInitializationSettings('@mipmap/ic_launcher');
 
@@ -78,68 +82,85 @@ class NotificationService {
 
       // Create Channel for Android
       if (!kIsWeb) {
-        const AndroidNotificationChannel channel = AndroidNotificationChannel(
-          'high_importance_channel', // id
-          'High Importance Notifications', // title
-          importance: Importance.max,
-        );
-        await _flutterLocalNotificationsPlugin
-            .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin
-            >()
-            ?.createNotificationChannel(channel);
+        try {
+          const AndroidNotificationChannel channel = AndroidNotificationChannel(
+            'high_importance_channel', // id
+            'High Importance Notifications', // title
+            importance: Importance.max,
+          );
+          await _flutterLocalNotificationsPlugin
+              .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin
+              >()
+              ?.createNotificationChannel(channel);
+        } catch (e) {
+          debugPrint("Error creating Android channel: $e");
+        }
       }
 
       // 4. Handle Foreground Messages
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        debugPrint('Got a message whilst in the foreground!');
-        RemoteNotification? notification = message.notification;
-        AndroidNotification? android = message.notification?.android;
+        try {
+          debugPrint('Got a message whilst in the foreground!');
+          RemoteNotification? notification = message.notification;
+          AndroidNotification? android = message.notification?.android;
 
-        // On Web, android is null. We can still show if notification exists.
-        if (notification != null && (android != null || kIsWeb)) {
-          _flutterLocalNotificationsPlugin.show(
-            notification.hashCode,
-            notification.title,
-            notification.body,
-            NotificationDetails(
-              android: AndroidNotificationDetails(
-                'high_importance_channel',
-                'High Importance Notifications',
-                icon: '@mipmap/ic_launcher',
-                importance: Importance.max,
-                priority: Priority.high,
+          if (notification != null && (android != null || kIsWeb)) {
+            _flutterLocalNotificationsPlugin.show(
+              notification.hashCode,
+              notification.title,
+              notification.body,
+              NotificationDetails(
+                android: AndroidNotificationDetails(
+                  'high_importance_channel',
+                  'High Importance Notifications',
+                  icon: '@mipmap/ic_launcher',
+                  importance: Importance.max,
+                  priority: Priority.high,
+                ),
               ),
-              // Web support in local_notifications is limited/requires extra setup.
-              // For now this ensures mobile works and web doesn't crash on invalid conditions,
-              // or attempts to show if supported.
-            ),
-          );
+            );
+          }
+        } catch (e) {
+          debugPrint("Error handling foreground message: $e");
         }
       });
 
-      // 5. Get and Save Token (Web requires VAPID key usually for getToken)
-      // We pass the key from firebase_options or hardcoded if needed, but often it works with default config if sw is right.
-      // Better to wrap saveToken in try-catch specifically for Web Vapid issues.
+      // 5. Get and Save Token
       await saveTokenToDatabase();
 
       // 6. Listen for token refresh
-      _firebaseMessaging.onTokenRefresh.listen(saveTokenToDatabase);
+      _firebaseMessaging.onTokenRefresh.listen((token) {
+        saveTokenToDatabase(token);
+      });
     } catch (e) {
       debugPrint("Error initializing NotificationService: $e");
-      // Don't rethrow, so app can continue starting
     }
   }
 
   Future<void> saveTokenToDatabase([String? token]) async {
-    String? fcmToken = token ?? await _firebaseMessaging.getToken();
-    User? user = FirebaseAuth.instance.currentUser;
+    try {
+      String? fcmToken = token;
+      if (fcmToken == null) {
+        try {
+          fcmToken = await _firebaseMessaging.getToken();
+        } catch (e) {
+          debugPrint("Error fetching FCM token: $e");
+          return;
+        }
+      }
 
-    if (user != null && fcmToken != null) {
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update(
-        {'fcmToken': fcmToken},
-      );
-      debugPrint("FCM Token Saved: $fcmToken");
+      User? user = FirebaseAuth.instance.currentUser;
+
+      if (user != null && fcmToken != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({'fcmToken': fcmToken});
+        debugPrint("FCM Token Saved: $fcmToken");
+      }
+    } catch (e) {
+      debugPrint("Error saving token to database: $e");
     }
   }
 

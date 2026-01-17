@@ -26,52 +26,69 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkAuth() async {
-    // Artificial delay for splash animation
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      // Artificial delay for splash animation
+      await Future.delayed(const Duration(seconds: 2));
 
-    // Request Notification Permission on Startup
-    await NotificationService().requestPermission();
+      // Request Notification Permission on Startup
+      // We await this to ensure the user sees the prompt before navigating
+      try {
+        await NotificationService().requestPermission();
+      } catch (e) {
+        debugPrint("Splash: Error requesting permission: $e");
+      }
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    final authService = AuthService();
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final authService = AuthService();
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-    // Check if user is logged in
-    final currentUser = authService.currentUser;
+      // Check if user is logged in
+      final currentUser = authService.currentUser;
 
-    if (currentUser != null) {
-      // Fetch user data
-      final userModel = await authService.getUserProfile();
+      if (currentUser != null) {
+        // Fetch user data
+        try {
+          final userModel = await authService.getUserProfile();
 
-      if (mounted) {
-        if (userModel != null) {
-          userProvider.setUser(userModel);
+          if (mounted) {
+            if (userModel != null) {
+              userProvider.setUser(userModel);
 
-          // Route based on role and status
-          if (userModel.role == 'cadet') {
-            if (userModel.status == 0) {
-              _navigate(const CadetPendingPage());
-            } else if (userModel.status == -1) {
-              await authService.logout();
-              if (mounted) _showError("Your registration was rejected.");
-              _navigate(const LoginPage());
+              // Route based on role and status
+              if (userModel.role == 'cadet') {
+                if (userModel.status == 0) {
+                  _navigate(const CadetPendingPage());
+                } else if (userModel.status == -1) {
+                  await authService.logout();
+                  if (mounted) _showError("Your registration was rejected.");
+                  _navigate(const LoginPage());
+                } else {
+                  // Approved
+                  navigateByRole(context, 'cadet');
+                }
+              } else {
+                // Officer or other roles
+                navigateByRole(context, userModel.role);
+              }
             } else {
-              // Approved
-              navigateByRole(context, 'cadet');
+              // User exists in Auth but not in Firestore (rare edge case)
+              await authService.logout();
+              _navigate(const WelcomePage());
             }
-          } else {
-            // Officer or other roles
-            navigateByRole(context, userModel.role);
           }
-        } else {
-          // User exists in Auth but not in Firestore (rare edge case)
-          await authService.logout();
+        } catch (e) {
+          debugPrint("Splash: Error fetching user profile: $e");
+          // If error fetching profile, safely go to login/welcome
           _navigate(const WelcomePage());
         }
+      } else {
+        _navigate(const WelcomePage());
       }
-    } else {
-      _navigate(const WelcomePage());
+    } catch (e) {
+      debugPrint("Splash: Fatal Error in _checkAuth: $e");
+      // Fallback navigation
+      if (mounted) _navigate(const WelcomePage());
     }
   }
 

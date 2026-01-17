@@ -149,11 +149,19 @@ class AuthService {
           return "There is no organization found with this Organization ID";
         }
       } else if (role == 'officer') {
+        // OFFICER: Validate Unique Organization (One officer per org)
+        final existingOfficer = await _firestore
+            .collection('users')
+            .where('role', isEqualTo: 'officer')
+            .where('organizationId', isEqualTo: organizationId)
+            .limit(1)
+            .get();
+
+        if (existingOfficer.docs.isNotEmpty) {
+          return "an officer already registered with this organization id. Please correct or change your organizationId";
+        }
+
         // OFFICER: Create Organization
-        // We use set with merge: true to avoid overwriting if it somehow exists (though logic implies ownership)
-        // Or if we want to FAIL if it exists to prevent hijacking?
-        // User requested: "officer create organization id when create"
-        // Let's create it.
         await _firestore.collection('organizations').doc(organizationId).set({
           'organizationId': organizationId,
           'createdBy': email,
