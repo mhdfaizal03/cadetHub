@@ -65,11 +65,11 @@ class _SplashScreenState extends State<SplashScreen> {
                   _navigate(const LoginPage());
                 } else {
                   // Approved
-                  navigateByRole(context, 'cadet');
+                  navigateByRole(context, userModel);
                 }
               } else {
                 // Officer or other roles
-                navigateByRole(context, userModel.role);
+                navigateByRole(context, userModel);
               }
             } else {
               // User exists in Auth but not in Firestore (rare edge case)

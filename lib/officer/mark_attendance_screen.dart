@@ -4,6 +4,7 @@ import 'package:ncc_cadet/models/parade_model.dart';
 import 'package:ncc_cadet/services/attendance_service.dart';
 import 'package:ncc_cadet/services/auth_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
+import 'package:ncc_cadet/utils/access_control.dart';
 
 class MarkAttendanceScreen extends StatefulWidget {
   final ParadeModel parade;
@@ -20,7 +21,6 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
   List<Map<String, dynamic>> _allCadets = [];
   bool _isLoading = true;
   bool _isSaving = false;
-  bool _isSUO = false;
 
   @override
   void initState() {
@@ -33,14 +33,12 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
     try {
       // 1. Get current user to check for SUO restrictions
       final currentUser = await _authService.getUserProfile();
-      final isSUO = currentUser?.rank == 'Senior Under Officer';
-      final suoYear = currentUser?.year;
-
-      if (mounted) setState(() => _isSUO = isSUO);
+      // isSUO and suoYear variables removed as they are no longer needed.
 
       // 2. Get all cadets in the organization
+      final manageableYears = getManageableYears(currentUser!);
       final cadetsSnapshot = await _authService
-          .getCadetsStream(widget.parade.organizationId)
+          .getCadetsStream(widget.parade.organizationId, years: manageableYears)
           .first;
 
       final cadets = cadetsSnapshot.docs
@@ -48,10 +46,8 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
             final data = doc.data() as Map<String, dynamic>;
             final cadetYear = data['year'] ?? '';
 
-            // SUO Restriction: Only their own year
-            if (isSUO && suoYear != null && cadetYear != suoYear) {
-              return false;
-            }
+            // SUO Restriction removed as they are same as Officer now.
+            // Access is handled by getCadetsStream using getManageableYears.
 
             if (widget.parade.targetYear == 'All') return true;
             return cadetYear == widget.parade.targetYear;
@@ -145,7 +141,11 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
   @override
   Widget build(BuildContext context) {
     // If targetYear is specific (not 'All'), OR user is SUO (restricted view), show simple list
-    if (widget.parade.targetYear != 'All' || _isSUO) {
+    // If targetYear is specific (not 'All'), show simple list.
+    // SUO/Officer logic is handled by data content, but if restricted to one year via ManageableYears, we might want to simplify?
+    // But Tabs are fine if they just show relevant years.
+    // Remove _isSUO check which forced simple list.
+    if (widget.parade.targetYear != 'All') {
       return Scaffold(
         backgroundColor: AppTheme.lightGrey,
         appBar: _buildAppBar(),

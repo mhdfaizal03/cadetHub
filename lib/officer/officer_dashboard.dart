@@ -19,6 +19,7 @@ import 'package:ncc_cadet/services/attendance_service.dart';
 import 'package:ncc_cadet/services/leave_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
 import 'package:ncc_cadet/officer/officer_exam_list.dart';
+import 'package:ncc_cadet/utils/access_control.dart';
 
 class OfficerDashboardScreen extends StatelessWidget {
   const OfficerDashboardScreen({super.key});
@@ -105,7 +106,10 @@ class OfficerDashboardScreen extends StatelessWidget {
               const SizedBox(height: 15),
 
               StreamBuilder<QuerySnapshot>(
-                stream: AuthService().getCadetsStream(user!.organizationId),
+                stream: AuthService().getCadetsStream(
+                  user!.organizationId,
+                  years: getManageableYears(user),
+                ),
                 builder: (context, cadetSnapshot) {
                   final cadetCount = cadetSnapshot.hasData
                       ? cadetSnapshot.data!.docs.length
@@ -194,13 +198,18 @@ class OfficerDashboardScreen extends StatelessWidget {
                   ),
                   _buildAction(
                     context,
-                    "Add/Edit Parade",
+                    user.rank == 'Under Officer'
+                        ? "View Parades"
+                        : "Add/Edit Parade",
                     Icons.add_circle_outline_outlined,
                     const ParadeListScreen(),
                     1,
                   ),
                   StreamBuilder<QuerySnapshot>(
-                    stream: AuthService().pendingCadets(user!.organizationId),
+                    stream: AuthService().pendingCadets(
+                      user.organizationId,
+                      years: getManageableYears(user),
+                    ),
                     builder: (context, snapshot) {
                       int count = 0;
                       if (snapshot.hasData) {
@@ -223,16 +232,18 @@ class OfficerDashboardScreen extends StatelessWidget {
                     const OfficerAttendanceReport(),
                     3,
                   ),
-                  _buildAction(
-                    context,
-                    "Notifications",
-                    Icons.mail_outline,
-                    const SendNotificationPage(),
-                    4,
-                  ),
+                  if (user.rank != 'Under Officer')
+                    _buildAction(
+                      context,
+                      "Notifications",
+                      Icons.mail_outline,
+                      const SendNotificationPage(),
+                      4,
+                    ),
                   StreamBuilder<QuerySnapshot>(
                     stream: LeaveService().getPendingLeaves(
                       user.organizationId,
+                      years: getManageableYears(user),
                     ),
                     builder: (context, snapshot) {
                       int count = 0;
@@ -251,7 +262,9 @@ class OfficerDashboardScreen extends StatelessWidget {
                   ),
                   _buildAction(
                     context,
-                    "Manage Camps",
+                    user.rank == 'Under Officer'
+                        ? "View Camps"
+                        : "Manage Camps",
                     Icons.terrain,
                     const OfficerCampListScreen(),
                     6,
@@ -279,40 +292,32 @@ class OfficerDashboardScreen extends StatelessWidget {
                       );
                     },
                   ),
-                  StreamBuilder<QuerySnapshot>(
-                    stream: AuthService().pendingCadets(user.organizationId),
-                    builder: (context, snapshot) {
-                      // Approve Cadets is basically the same as Manage Cadets pending check?
-                      // Wait, "Manage Cadets" might be list of all. "Approve Cadets" is explicitly for pending.
-                      // Let's put the badge on Approve Cadets mainly.
-                      // The user plan said "Manage Cadets: Count of 'Pending' cadet approvals".
-                      // I will put it on "Approve Cadets" as that's the actionable item.
-                      // And "Manage Cadets" can be just the list.
-                      // Re-reading logic: Manage Cadets is index 2. Approve Cadets is index 8.
-                      // Let's put badge on Approve Cadets (index 8) and maybe Manage Cadets too if key.
-                      // The code block for index 2 (Manage Cadets) already used pendingCadets.
-                      // I should probably remove the badge from Manage Cadets (index 2) if it's just a list,
-                      // OR keep it if that's where they go to approve.
-                      // Actually, let's keep it consistent.
-                      // Index 8 is "Approve Cadets".
-
-                      int count = 0;
-                      if (snapshot.hasData) {
-                        count = snapshot.data!.docs.length;
-                      }
-                      return _buildAction(
-                        context,
-                        "Approve Cadets",
-                        Icons.approval_outlined,
-                        const ApproveCadetPage(),
-                        8,
-                        badgeCount: count,
-                      );
-                    },
-                  ),
+                  if (user.rank != 'Under Officer')
+                    StreamBuilder<QuerySnapshot>(
+                      stream: AuthService().pendingCadets(
+                        user.organizationId,
+                        years: getManageableYears(user),
+                      ),
+                      builder: (context, snapshot) {
+                        int count = 0;
+                        if (snapshot.hasData) {
+                          count = snapshot.data!.docs.length;
+                        }
+                        return _buildAction(
+                          context,
+                          "Approve Cadets",
+                          Icons.approval_outlined,
+                          const ApproveCadetPage(),
+                          8,
+                          badgeCount: count,
+                        );
+                      },
+                    ),
                   _buildAction(
                     context,
-                    "Manage Exams",
+                    user.rank == 'Under Officer'
+                        ? "View Exams"
+                        : "Manage Exams",
                     Icons.assignment_turned_in,
                     const OfficerExamListScreen(),
                     9,

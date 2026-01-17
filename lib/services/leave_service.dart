@@ -80,10 +80,20 @@ class LeaveService {
   }
 
   // Get Pending Leaves for Organization
-  Stream<QuerySnapshot> getPendingLeaves(String organizationId) {
-    return _leaves
+  Stream<QuerySnapshot> getPendingLeaves(
+    String organizationId, {
+    List<String>? years,
+  }) {
+    Query query = _firestore
+        .collection('leaves')
         .where('organizationId', isEqualTo: organizationId)
-        .where('status', isEqualTo: 'Pending')
+        .where('status', isEqualTo: 'Pending');
+
+    if (years != null && years.isNotEmpty) {
+      query = query.where('cadetYear', whereIn: years);
+    }
+
+    return query
         .orderBy('createdAt', descending: false)
         .snapshots()
         .handleError((e) {

@@ -142,7 +142,7 @@ class CadetLeaveHistoryScreen extends StatelessWidget {
                 ],
               ),
               Text(
-                DateFormat('MMM dd, yyyy').format(leave.createdAt),
+                DateFormat('MMM d, yyyy').format(leave.createdAt),
                 style: const TextStyle(color: Colors.grey, fontSize: 12),
               ),
             ],

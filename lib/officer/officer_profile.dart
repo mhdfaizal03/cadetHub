@@ -142,7 +142,9 @@ class OfficerProfileScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          "Officer",
+                          (profile.role == 'officer')
+                              ? "Officer"
+                              : profile.rank, // Show rank for SUO/UO
                           style: TextStyle(
                             color: AppTheme.navyBlue,
                             fontWeight: FontWeight.bold,

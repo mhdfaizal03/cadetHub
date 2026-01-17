@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:ncc_cadet/cadet/cadet_attendance_report_page.dart';
 import 'package:ncc_cadet/cadet/cadet_camp_details_page.dart';
@@ -269,7 +270,9 @@ class CadetDashboardScreen extends StatelessWidget {
                                             )) {
                                           // Parade is sooner or same day
                                           title = "Next Parade";
-                                          date = nextParade['date'];
+                                          date = DateFormat(
+                                            'MMM d, yyyy',
+                                          ).format(paradeDate);
                                           subtitle =
                                               nextParade['name'] ??
                                               "Upcoming Parade";
@@ -278,7 +281,9 @@ class CadetDashboardScreen extends StatelessWidget {
                                         } else {
                                           // Camp is sooner
                                           title = "Next Camp";
-                                          date = nextCamp['startDate'];
+                                          date = DateFormat(
+                                            'MMM d, yyyy',
+                                          ).format(campDate);
                                           subtitle =
                                               nextCamp['name'] ??
                                               "Upcoming Camp";
@@ -286,18 +291,20 @@ class CadetDashboardScreen extends StatelessWidget {
                                           iconColor = Colors.green;
                                         }
                                       } else if (paradeDate != null) {
-                                        // Camp date invalid
                                         title = "Next Parade";
-                                        date = nextParade['date'];
+                                        date = DateFormat(
+                                          'MMM d, yyyy',
+                                        ).format(paradeDate);
                                         subtitle =
                                             nextParade['name'] ??
                                             "Upcoming Parade";
                                         icon = Icons.flag_outlined;
                                         iconColor = AppTheme.gold;
                                       } else if (campDate != null) {
-                                        // Parade date invalid
                                         title = "Next Camp";
-                                        date = nextCamp['startDate'];
+                                        date = DateFormat(
+                                          'MMM d, yyyy',
+                                        ).format(campDate);
                                         subtitle =
                                             nextCamp['name'] ?? "Upcoming Camp";
                                         icon = Icons.terrain_outlined;
@@ -305,7 +312,9 @@ class CadetDashboardScreen extends StatelessWidget {
                                       }
                                     } else if (nextParade != null) {
                                       title = "Next Parade";
-                                      date = nextParade['date'];
+                                      date = DateFormat('MMM d, yyyy').format(
+                                        DateTime.parse(nextParade['date']),
+                                      );
                                       subtitle =
                                           nextParade['name'] ??
                                           "Upcoming Parade";
@@ -313,7 +322,9 @@ class CadetDashboardScreen extends StatelessWidget {
                                       iconColor = AppTheme.gold;
                                     } else if (nextCamp != null) {
                                       title = "Next Camp";
-                                      date = nextCamp['startDate'];
+                                      date = DateFormat('MMM d, yyyy').format(
+                                        DateTime.parse(nextCamp['startDate']),
+                                      );
                                       subtitle =
                                           nextCamp['name'] ?? "Upcoming Camp";
                                       icon = Icons.terrain_outlined;

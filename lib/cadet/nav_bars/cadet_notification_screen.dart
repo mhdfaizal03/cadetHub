@@ -80,7 +80,7 @@ class CadetNotificationsScreen extends StatelessWidget {
               final notification = filteredNotifications[index];
               return _NotificationTile(
                 title: notification.title,
-                date: DateFormat('MMM d, y').format(notification.createdAt),
+                date: DateFormat('MMM d, yyyy').format(notification.createdAt),
                 desc: notification.message,
                 isImportant: notification.type == 'organization',
                 targetYear: notification.targetYear,

@@ -371,7 +371,7 @@ class _MarkAttendanceSelectionScreenState
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    "${parade.date} at ${parade.time}",
+                    "${DateFormat('MMM d, yyyy').format(DateTime.parse(parade.date))} at ${parade.time}",
                     style: const TextStyle(color: Colors.black87, fontSize: 14),
                   ),
                 ],

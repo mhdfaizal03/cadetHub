@@ -54,23 +54,40 @@ class AuthService {
   }
 
   // Stream of pending cadets for a specific organization
-  Stream<QuerySnapshot> pendingCadets(String organizationId) {
-    return _firestore
+  // Stream of pending cadets for a specific organization
+  Stream<QuerySnapshot> pendingCadets(
+    String organizationId, {
+    List<String>? years,
+  }) {
+    Query query = _firestore
         .collection('users')
         .where('role', isEqualTo: 'cadet')
         .where('organizationId', isEqualTo: organizationId)
-        .where('status', isEqualTo: 0) // 0 for pending
-        .snapshots();
+        .where('status', isEqualTo: 0); // 0 for pending
+
+    if (years != null && years.isNotEmpty) {
+      query = query.where('year', whereIn: years);
+    }
+
+    return query.snapshots();
   }
 
   // Stream of ALL cadets (approved) for a specific organization
-  Stream<QuerySnapshot> getCadetsStream(String organizationId) {
-    return _firestore
+  Stream<QuerySnapshot> getCadetsStream(
+    String organizationId, {
+    List<String>? years,
+  }) {
+    Query query = _firestore
         .collection('users')
         .where('role', isEqualTo: 'cadet')
         .where('organizationId', isEqualTo: organizationId)
-        .where('status', isEqualTo: 1) // 1 for approved
-        .snapshots();
+        .where('status', isEqualTo: 1); // 1 for approved
+
+    if (years != null && years.isNotEmpty) {
+      query = query.where('year', whereIn: years);
+    }
+
+    return query.snapshots();
   }
 
   // Update cadet status (Approve/Reject)
@@ -96,6 +113,34 @@ class AuthService {
   // Current User Getter
   User? get currentUser => _auth.currentUser;
 
+  // Helper to handle Firebase Auth Exceptions deeply
+  String _handleAuthException(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'user-not-found':
+        return "No user found with this email. Please register first.";
+      case 'wrong-password':
+        return "Incorrect password. Please try again.";
+      case 'invalid-email':
+        return "The email address is badly formatted.";
+      case 'email-already-in-use':
+        return "The email address is already in use by another account.";
+      case 'weak-password':
+        return "The password is too weak. Please use at least 6 characters.";
+      case 'operation-not-allowed':
+        return "Email/password accounts are not enabled.";
+      case 'user-disabled':
+        return "This user account has been disabled.";
+      case 'too-many-requests':
+        return "Too many requests. Please try again later.";
+      case 'network-request-failed':
+        return "Network error. Please check your internet connection.";
+      case 'invalid-credential':
+        return "Invalid credentials. Please check your email and password.";
+      default:
+        return "Authentication Error: ${e.message} (${e.code})";
+    }
+  }
+
   // Login
   Future<String?> login({
     required String email,
@@ -120,10 +165,10 @@ class AuthService {
 
       return null;
     } on FirebaseAuthException catch (e) {
-      return e.message ?? "Login failed";
+      return _handleAuthException(e);
     } catch (e) {
-      print("Login Error: $e"); // Added logging
-      return "An unexpected error occurred";
+      print("Login Error: $e");
+      return "An unexpected error occurred: $e";
     }
   }
 
@@ -159,7 +204,7 @@ class AuthService {
             .get();
 
         if (existingOfficer.docs.isNotEmpty) {
-          return "an officer already registered with this organization id. Please correct or change your organizationId";
+          return "An officer is already registered with this Organization ID.";
         }
 
         // OFFICER: Create Organization
@@ -223,7 +268,7 @@ class AuthService {
 
       return null;
     } on FirebaseAuthException catch (e) {
-      return e.message ?? "Registration failed";
+      return _handleAuthException(e);
     } catch (e) {
       return "An unexpected error occurred: $e";
     }
@@ -245,9 +290,9 @@ class AuthService {
       await _auth.sendPasswordResetEmail(email: email);
       return null;
     } on FirebaseAuthException catch (e) {
-      return e.message ?? "Failed to send reset email";
+      return _handleAuthException(e);
     } catch (e) {
-      return "An unexpected error occurred";
+      return "An unexpected error occurred: $e";
     }
   }
 
@@ -313,7 +358,7 @@ class AuthService {
       await secondaryAuth.signOut();
       return null; // Success
     } on FirebaseAuthException catch (e) {
-      return e.message ?? "Registration failed";
+      return _handleAuthException(e);
     } catch (e) {
       return "An unexpected error occurred: $e";
     } finally {

@@ -5,6 +5,8 @@ import 'package:ncc_cadet/services/auth_service.dart';
 import 'package:ncc_cadet/services/leave_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ncc_cadet/utils/theme.dart';
+import 'package:ncc_cadet/utils/access_control.dart';
+import 'package:intl/intl.dart';
 
 class ApproveLeavePage extends StatefulWidget {
   const ApproveLeavePage({super.key});
@@ -76,7 +78,7 @@ class _ApproveLeavePageState extends State<ApproveLeavePage> {
                 _buildInfoRow(
                   Icons.calendar_today,
                   "Duration",
-                  "${leave.startDate} to ${leave.endDate}",
+                  "${DateFormat('MMM d, yyyy').format(DateTime.parse(leave.startDate))} to ${DateFormat('MMM d, yyyy').format(DateTime.parse(leave.endDate))}",
                 ),
                 const SizedBox(height: 12),
                 _buildInfoRow(Icons.info_outline, "Reason", leave.reason),
@@ -227,57 +229,69 @@ class _ApproveLeavePageState extends State<ApproveLeavePage> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 4,
-      child: Scaffold(
-        backgroundColor: AppTheme.lightGrey,
-        appBar: AppBar(
-          foregroundColor: Colors.white,
-          leading: IconButton(
-            icon: const Icon(
-              Icons.keyboard_arrow_left,
-              color: Colors.white,
-              size: 28,
+    return FutureBuilder<UserModel?>(
+      future: _authService.getUserProfile(),
+      builder: (context, userSnapshot) {
+        if (userSnapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            backgroundColor: AppTheme.lightGrey,
+            body: Center(
+              child: CircularProgressIndicator(color: AppTheme.accentBlue),
             ),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: const Text(
-            "Approve Leave",
-            style: TextStyle(color: Colors.white),
-          ),
-          backgroundColor: AppTheme.navyBlue,
-          elevation: 0,
-          iconTheme: const IconThemeData(color: Colors.white),
-          bottom: TabBar(
-            labelColor: AppTheme.accentBlue,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: AppTheme.accentBlue,
-            tabs: const [
-              Tab(text: "All"),
-              Tab(text: "1st Year"),
-              Tab(text: "2nd Year"),
-              Tab(text: "3rd Year"),
-            ],
-          ),
-        ),
-        body: FutureBuilder<UserModel?>(
-          future: _authService.getUserProfile(),
-          builder: (context, userSnapshot) {
-            if (userSnapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: CircularProgressIndicator(color: AppTheme.accentBlue),
-              );
-            }
+          );
+        }
 
-            final officer = userSnapshot.data;
-            if (officer == null) {
-              return const Center(
-                child: Text("Error fetching officer profile"),
-              );
-            }
+        final officer = userSnapshot.data;
+        if (officer == null) {
+          return const Scaffold(
+            body: Center(child: Text("Error fetching officer profile")),
+          );
+        }
 
-            return StreamBuilder<QuerySnapshot>(
-              stream: _leaveService.getPendingLeaves(officer.organizationId),
+        final manageableYears = getManageableYears(officer);
+        final bool isRestricted = manageableYears != null;
+        final bool singleYearView = isRestricted && manageableYears.length == 1;
+
+        return DefaultTabController(
+          length: singleYearView ? 1 : 4,
+          child: Scaffold(
+            backgroundColor: AppTheme.lightGrey,
+            appBar: AppBar(
+              foregroundColor: Colors.white,
+              leading: IconButton(
+                icon: const Icon(
+                  Icons.keyboard_arrow_left,
+                  color: Colors.white,
+                  size: 28,
+                ),
+                onPressed: () => Navigator.pop(context),
+              ),
+              title: const Text(
+                "Approve Leave",
+                style: TextStyle(color: Colors.white),
+              ),
+              backgroundColor: AppTheme.navyBlue,
+              elevation: 0,
+              iconTheme: const IconThemeData(color: Colors.white),
+              bottom: singleYearView
+                  ? null
+                  : TabBar(
+                      labelColor: AppTheme.accentBlue,
+                      unselectedLabelColor: Colors.grey,
+                      indicatorColor: AppTheme.accentBlue,
+                      tabs: const [
+                        Tab(text: "All"),
+                        Tab(text: "1st Year"),
+                        Tab(text: "2nd Year"),
+                        Tab(text: "3rd Year"),
+                      ],
+                    ),
+            ),
+            body: StreamBuilder<QuerySnapshot>(
+              stream: _leaveService.getPendingLeaves(
+                officer.organizationId,
+                years: manageableYears,
+              ),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
@@ -298,6 +312,10 @@ class _ApproveLeavePageState extends State<ApproveLeavePage> {
                   );
                 }).toList();
 
+                if (singleYearView) {
+                  return _buildLeaveList(leaves, manageableYears.first);
+                }
+
                 return TabBarView(
                   children: [
                     _buildLeaveList(leaves, "All"),
@@ -307,10 +325,10 @@ class _ApproveLeavePageState extends State<ApproveLeavePage> {
                   ],
                 );
               },
-            );
-          },
-        ),
-      ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -368,7 +386,8 @@ class _ApproveLeavePageState extends State<ApproveLeavePage> {
           child: LeaveRequestCard(
             name: leave.cadetName,
             id: leave.cadetId,
-            dates: "${leave.startDate} → ${leave.endDate}",
+            dates:
+                "${DateFormat('MMM d, yyyy').format(DateTime.parse(leave.startDate))} → ${DateFormat('MMM d, yyyy').format(DateTime.parse(leave.endDate))}",
             reason: leave.reason,
             status: leave.status,
             // Remove direct buttons, handle in dialog

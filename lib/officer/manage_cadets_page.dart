@@ -1,4 +1,5 @@
 import 'package:ncc_cadet/models/user_model.dart';
+import 'package:ncc_cadet/utils/access_control.dart';
 import 'package:flutter/material.dart';
 import 'package:ncc_cadet/officer/addedit_cadet_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -36,12 +37,13 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
           return const Scaffold(body: Center(child: Text("Profile error")));
         }
 
-        // Determine if restricted (SUO)
-        final bool isCadet = user.role == 'cadet';
-        final String? cadetYear = isCadet ? user.year : null;
+        // Determine if restricted
+        final manageableYears = getManageableYears(user);
+        final bool isRestricted = manageableYears != null;
+        final bool singleYearView = isRestricted && manageableYears.length == 1;
 
         return DefaultTabController(
-          length: isCadet ? 1 : 4,
+          length: singleYearView ? 1 : 4,
           child: Scaffold(
             backgroundColor: const Color(0xFFF9F9F9),
             appBar: AppBar(
@@ -57,13 +59,12 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
                 onPressed: () => Navigator.pop(context),
               ),
               title: const Text("Manage Cadets"),
-              bottom: isCadet
-                  ? null // No tabs for specific year view
+              bottom: singleYearView
+                  ? null
                   : TabBar(
                       labelColor: AppTheme.accentBlue,
                       unselectedLabelColor: Colors.grey,
                       indicatorColor: AppTheme.accentBlue,
-                      // isScrollable: true,
                       tabs: const [
                         Tab(text: "All"),
                         Tab(text: "1st Year"),
@@ -73,31 +74,27 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
                     ),
             ),
             body: StreamBuilder<QuerySnapshot>(
-              stream: _authService.getCadetsStream(user.organizationId),
+              stream: _authService.getCadetsStream(
+                user.organizationId,
+                years: manageableYears,
+              ),
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
+                if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
-                }
-
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(
-                    child: Text("No cadets found in this unit."),
-                  );
                 }
 
                 var allDocs = snapshot.data!.docs;
 
-                if (isCadet) {
-                  // Show only single list for their year
-                  return _buildCadetList(allDocs, cadetYear ?? "All");
+                if (singleYearView) {
+                  return _buildCadetList(allDocs, manageableYears.first, user);
                 }
 
                 return TabBarView(
                   children: [
-                    _buildCadetList(allDocs, "All"),
-                    _buildCadetList(allDocs, "1st Year"),
-                    _buildCadetList(allDocs, "2nd Year"),
-                    _buildCadetList(allDocs, "3rd Year"),
+                    _buildCadetList(allDocs, "All", user),
+                    _buildCadetList(allDocs, "1st Year", user),
+                    _buildCadetList(allDocs, "2nd Year", user),
+                    _buildCadetList(allDocs, "3rd Year", user),
                   ],
                 );
               },
@@ -121,7 +118,11 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
     );
   }
 
-  Widget _buildCadetList(List<QueryDocumentSnapshot> docs, String year) {
+  Widget _buildCadetList(
+    List<QueryDocumentSnapshot> docs,
+    String year,
+    UserModel user,
+  ) {
     // 1. Year Filtering
     var filteredDocs = year == "All"
         ? docs
@@ -194,7 +195,7 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
                     final data = doc.data() as Map<String, dynamic>;
                     final uid = doc.id;
 
-                    return _buildCadetCard(uid, data, context);
+                    return _buildCadetCard(uid, data, context, user.rank);
                   },
                 ),
         ),
@@ -206,8 +207,10 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
     String uid,
     Map<String, dynamic> data,
     BuildContext context,
+    String currentUserRank,
   ) {
     final name = data['name'] ?? 'Unknown';
+    // ... (rest of variable declarations)
     final id = data['cadetId'] ?? 'N/A';
     final rank = data['rank'] ?? 'Cadet';
     final status = data['status'] == 1
@@ -217,6 +220,7 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
     final year = data['year'] ?? '1st Year';
 
     return Container(
+      // ... (container decoration)
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -230,6 +234,7 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // ... (name, id, badges)
                 Row(
                   children: [
                     Text(
@@ -245,7 +250,6 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
                   id,
                   style: const TextStyle(color: Colors.grey, fontSize: 13),
                 ),
-                const SizedBox(height: 10),
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 8,
@@ -303,14 +307,16 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
                   );
                 },
               ),
-              IconButton(
-                icon: const Icon(
-                  Icons.delete_outline,
-                  size: 20,
-                  color: Colors.redAccent,
+              if (currentUserRank !=
+                  'Under Officer') // Prevent UO from deleting
+                IconButton(
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    size: 20,
+                    color: Colors.redAccent,
+                  ),
+                  onPressed: () => _confirmDelete(uid, name),
                 ),
-                onPressed: () => _confirmDelete(uid, name),
-              ),
             ],
           ),
         ],

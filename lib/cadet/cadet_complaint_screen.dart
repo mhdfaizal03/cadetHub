@@ -269,7 +269,7 @@ class _CadetComplaintScreenState extends State<CadetComplaintScreen> {
                     const SizedBox(height: 8),
                     Text(
                       DateFormat(
-                        'MMM d, y • h:mm a',
+                        'MMM d, yyyy • h:mm a',
                       ).format(complaint.createdAt),
                       style: const TextStyle(color: Colors.grey, fontSize: 12),
                     ),

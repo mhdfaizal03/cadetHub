@@ -143,7 +143,7 @@ class _AddExamPageState extends State<AddExamPage> {
                         );
                         if (picked != null) {
                           _dateController.text = DateFormat(
-                            'yyyy-MM-dd',
+                            'MMM d, yyyy',
                           ).format(picked);
                         }
                       },
@@ -239,7 +239,7 @@ class _AddExamPageState extends State<AddExamPage> {
         id: user.roleId,
         title: _titleController.text.trim(),
         description: _descController.text.trim(),
-        date: _dateController.text,
+        date: _dateController.text, // Stores "January 24, 2026"
         time: _timeController.text,
         type: _examType,
         targetYear: _targetYear,

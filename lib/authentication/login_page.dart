@@ -87,10 +87,10 @@ class _LoginPageState extends State<LoginPage> {
                 await authService.logout();
                 _showError("Your registration was rejected.");
               } else {
-                navigateByRole(context, 'cadet');
+                navigateByRole(context, userModel);
               }
             } else {
-              navigateByRole(context, userModel.role);
+              navigateByRole(context, userModel);
             }
           }
         } else {

@@ -5,6 +5,7 @@ import 'package:ncc_cadet/services/attendance_service.dart';
 import 'package:ncc_cadet/services/auth_service.dart';
 import 'package:ncc_cadet/services/parade_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
+import 'package:ncc_cadet/utils/access_control.dart';
 import 'package:intl/intl.dart';
 
 class OfficerAttendanceReport extends StatefulWidget {
@@ -22,55 +23,67 @@ class _OfficerAttendanceReportState extends State<OfficerAttendanceReport> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 4,
-      child: Scaffold(
-        backgroundColor: AppTheme.lightGrey,
-        appBar: AppBar(
-          backgroundColor: AppTheme.navyBlue,
-          elevation: 0,
-          foregroundColor: Colors.white,
-          leading: IconButton(
-            icon: const Icon(
-              Icons.keyboard_arrow_left,
-              color: Colors.white,
-              size: 28,
+    return FutureBuilder<UserModel?>(
+      future: _authService.getUserProfile(),
+      builder: (context, userSnapshot) {
+        if (userSnapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            backgroundColor: AppTheme.lightGrey,
+            body: Center(
+              child: CircularProgressIndicator(color: AppTheme.accentBlue),
             ),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: const Text(
-            "Unit Attendance Report",
-            style: TextStyle(color: Colors.white),
-          ),
-          bottom: TabBar(
-            labelColor: AppTheme.accentBlue,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: AppTheme.accentBlue,
-            tabs: const [
-              Tab(text: "All"),
-              Tab(text: "1st Year"),
-              Tab(text: "2nd Year"),
-              Tab(text: "3rd Year"),
-            ],
-          ),
-        ),
-        body: FutureBuilder<UserModel?>(
-          future: _authService.getUserProfile(),
-          builder: (context, userSnapshot) {
-            if (userSnapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: CircularProgressIndicator(color: AppTheme.accentBlue),
-              );
-            }
-            final officer = userSnapshot.data;
-            if (officer == null) {
-              return const Center(
-                child: Text("Error: Officer profile not found"),
-              );
-            }
+          );
+        }
+        final officer = userSnapshot.data;
+        if (officer == null) {
+          return const Scaffold(
+            body: Center(child: Text("Error: Officer profile not found")),
+          );
+        }
 
-            return StreamBuilder<QuerySnapshot>(
-              stream: _authService.getCadetsStream(officer.organizationId),
+        final manageableYears = getManageableYears(officer);
+        final bool isRestricted = manageableYears != null;
+        final bool singleYearView = isRestricted && manageableYears.length == 1;
+
+        return DefaultTabController(
+          length: singleYearView ? 1 : 4,
+          child: Scaffold(
+            backgroundColor: AppTheme.lightGrey,
+            appBar: AppBar(
+              backgroundColor: AppTheme.navyBlue,
+              elevation: 0,
+              foregroundColor: Colors.white,
+              leading: IconButton(
+                icon: const Icon(
+                  Icons.keyboard_arrow_left,
+                  color: Colors.white,
+                  size: 28,
+                ),
+                onPressed: () => Navigator.pop(context),
+              ),
+              title: const Text(
+                "Unit Attendance Report",
+                style: TextStyle(color: Colors.white),
+              ),
+              bottom: singleYearView
+                  ? null
+                  : TabBar(
+                      labelColor: AppTheme.accentBlue,
+                      unselectedLabelColor: Colors.grey,
+                      indicatorColor: AppTheme.accentBlue,
+                      tabs: const [
+                        Tab(text: "All"),
+                        Tab(text: "1st Year"),
+                        Tab(text: "2nd Year"),
+                        Tab(text: "3rd Year"),
+                      ],
+                    ),
+            ),
+            body: StreamBuilder<QuerySnapshot>(
+              stream: _authService.getCadetsStream(
+                officer.organizationId,
+                years: manageableYears,
+              ),
               builder: (context, cadetSnapshot) {
                 if (!cadetSnapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
@@ -98,6 +111,15 @@ class _OfficerAttendanceReportState extends State<OfficerAttendanceReport> {
                           );
                         }
                         final parades = paradeSnapshot.data!.docs;
+
+                        if (singleYearView) {
+                          return _buildReportContent(
+                            manageableYears.first,
+                            cadets,
+                            attendance,
+                            parades,
+                          );
+                        }
 
                         return TabBarView(
                           children: [
@@ -132,10 +154,10 @@ class _OfficerAttendanceReportState extends State<OfficerAttendanceReport> {
                   },
                 );
               },
-            );
-          },
-        ),
-      ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -401,7 +423,9 @@ class _OfficerAttendanceReportState extends State<OfficerAttendanceReport> {
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             subtitle: Text(
-              paradeData['date'] ?? '',
+              DateFormat(
+                'MMM d, yyyy',
+              ).format(DateTime.parse(paradeData['date'])),
               style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
             trailing: Row(

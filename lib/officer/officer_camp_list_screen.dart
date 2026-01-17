@@ -7,6 +7,8 @@ import 'package:ncc_cadet/officer/camp_participants_screen.dart';
 import 'package:ncc_cadet/services/auth_service.dart';
 import 'package:ncc_cadet/services/camp_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
+import 'package:ncc_cadet/utils/access_control.dart';
+import 'package:intl/intl.dart';
 
 class OfficerCampListScreen extends StatefulWidget {
   const OfficerCampListScreen({super.key});
@@ -21,65 +23,65 @@ class _OfficerCampListScreenState extends State<OfficerCampListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 4,
-      child: Scaffold(
-        backgroundColor: AppTheme.lightGrey,
-        appBar: AppBar(
-          title: const Text(
-            "Manage Camps",
-            style: TextStyle(color: Colors.white),
-          ),
-          backgroundColor: AppTheme.navyBlue,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(
-              Icons.keyboard_arrow_left,
-              color: Colors.white,
-              size: 28,
+    return FutureBuilder<UserModel?>(
+      future: _authService.getUserProfile(),
+      builder: (context, userSnapshot) {
+        if (userSnapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            backgroundColor: AppTheme.lightGrey,
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final officer = userSnapshot.data;
+        if (officer == null) {
+          return const Scaffold(
+            body: Center(child: Text("Error fetching officer profile")),
+          );
+        }
+
+        // Determine manageable years
+        final manageableYears = getManageableYears(officer);
+        final bool isRestricted = manageableYears != null;
+        final bool singleYearView = isRestricted && manageableYears.length == 1;
+        final bool canManage = officer.rank != 'Under Officer';
+
+        return DefaultTabController(
+          length: singleYearView ? 1 : 4,
+          child: Scaffold(
+            backgroundColor: AppTheme.lightGrey,
+            appBar: AppBar(
+              title: const Text(
+                "Manage Camps",
+                style: TextStyle(color: Colors.white),
+              ),
+              backgroundColor: AppTheme.navyBlue,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(
+                  Icons.keyboard_arrow_left,
+                  color: Colors.white,
+                  size: 28,
+                ),
+                onPressed: () => Navigator.maybePop(context),
+              ),
+              centerTitle: true,
+              bottom: singleYearView
+                  ? null
+                  : TabBar(
+                      labelColor: AppTheme.accentBlue,
+                      unselectedLabelColor: Colors.grey,
+                      indicatorColor: AppTheme.accentBlue,
+                      tabs: const [
+                        Tab(text: "All"),
+                        Tab(text: "1st Year"),
+                        Tab(text: "2nd Year"),
+                        Tab(text: "3rd Year"),
+                      ],
+                    ),
             ),
-            onPressed: () => Navigator.maybePop(context),
-          ),
-          centerTitle: true,
-          bottom: TabBar(
-            labelColor: AppTheme.accentBlue,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: AppTheme.accentBlue,
 
-            tabs: const [
-              Tab(text: "All"),
-              Tab(text: "1st Year"),
-              Tab(text: "2nd Year"),
-              Tab(text: "3rd Year"),
-            ],
-          ),
-        ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AddEditCampScreen()),
-            );
-          },
-          backgroundColor: AppTheme.navyBlue,
-          icon: const Icon(Icons.add, color: Colors.white),
-          label: const Text("Add Camp", style: TextStyle(color: Colors.white)),
-        ),
-        body: FutureBuilder<UserModel?>(
-          future: _authService.getUserProfile(),
-          builder: (context, userSnapshot) {
-            if (userSnapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            final officer = userSnapshot.data;
-            if (officer == null) {
-              return const Center(
-                child: Text("Error fetching officer profile"),
-              );
-            }
-
-            return StreamBuilder<QuerySnapshot>(
+            body: StreamBuilder<QuerySnapshot>(
               stream: _campService.getCamps(officer.organizationId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -90,30 +92,62 @@ class _OfficerCampListScreenState extends State<OfficerCampListScreen> {
                   return _buildEmptyState();
                 }
 
-                final allCamps = snapshot.data!.docs.map((doc) {
-                  return CampModel.fromMap(
-                    doc.data() as Map<String, dynamic>,
-                    doc.id,
+                final allCamps = snapshot.data!.docs
+                    .map((doc) {
+                      return CampModel.fromMap(
+                        doc.data() as Map<String, dynamic>,
+                        doc.id,
+                      );
+                    })
+                    .where((camp) {
+                      if (manageableYears == null) return true;
+                      return manageableYears.contains(camp.targetYear);
+                    })
+                    .toList();
+
+                if (singleYearView) {
+                  return _buildCampList(
+                    allCamps,
+                    manageableYears.first,
+                    canManage,
                   );
-                }).toList();
+                }
 
                 return TabBarView(
                   children: [
-                    _buildCampList(allCamps, "All"),
-                    _buildCampList(allCamps, "1st Year"),
-                    _buildCampList(allCamps, "2nd Year"),
-                    _buildCampList(allCamps, "3rd Year"),
+                    _buildCampList(allCamps, "All", canManage),
+                    _buildCampList(allCamps, "1st Year", canManage),
+                    _buildCampList(allCamps, "2nd Year", canManage),
+                    _buildCampList(allCamps, "3rd Year", canManage),
                   ],
                 );
               },
-            );
-          },
-        ),
-      ),
+            ),
+            floatingActionButton: canManage
+                ? FloatingActionButton.extended(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AddEditCampScreen(),
+                        ),
+                      );
+                    },
+                    backgroundColor: AppTheme.navyBlue,
+                    icon: const Icon(Icons.add, color: Colors.white),
+                    label: const Text(
+                      "Add Camp",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  )
+                : null,
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildCampList(List<CampModel> allCamps, String year) {
+  Widget _buildCampList(List<CampModel> allCamps, String year, bool canManage) {
     final filteredCamps = year == "All"
         ? allCamps
         : allCamps.where((c) => c.targetYear == year).toList();
@@ -139,7 +173,7 @@ class _OfficerCampListScreenState extends State<OfficerCampListScreen> {
       itemCount: filteredCamps.length,
       itemBuilder: (context, index) {
         final camp = filteredCamps[index];
-        return _buildCampCard(camp);
+        return _buildCampCard(camp, canManage);
       },
     );
   }
@@ -157,7 +191,7 @@ class _OfficerCampListScreenState extends State<OfficerCampListScreen> {
     );
   }
 
-  Widget _buildCampCard(CampModel camp) {
+  Widget _buildCampCard(CampModel camp, bool canManage) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 0,
@@ -200,7 +234,9 @@ class _OfficerCampListScreenState extends State<OfficerCampListScreen> {
               children: [
                 const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
                 const SizedBox(width: 4),
-                Text("${camp.startDate} - ${camp.endDate}"),
+                Text(
+                  "${DateFormat('MMM d, yyyy').format(DateTime.parse(camp.startDate))} - ${DateFormat('MMM d, yyyy').format(DateTime.parse(camp.endDate))}",
+                ),
               ],
             ),
             const SizedBox(height: 4),
@@ -213,59 +249,73 @@ class _OfficerCampListScreenState extends State<OfficerCampListScreen> {
             ),
           ],
         ),
-        trailing: PopupMenuButton(
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'participants',
-              child: Row(
-                children: [
-                  Icon(Icons.people_outline, size: 16),
-                  SizedBox(width: 8),
-                  Text("Participants"),
+
+        trailing: canManage
+            ? PopupMenuButton(
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'participants',
+                    child: Row(
+                      children: [
+                        Icon(Icons.people_outline, size: 16),
+                        SizedBox(width: 8),
+                        Text("Participants"),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit, size: 16),
+                        SizedBox(width: 8),
+                        Text("Edit"),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete, size: 16, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text("Delete", style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
                 ],
+                onSelected: (value) async {
+                  if (value == 'participants') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => CampParticipantsScreen(camp: camp),
+                      ),
+                    );
+                  } else if (value == 'edit') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AddEditCampScreen(camp: camp),
+                      ),
+                    );
+                  } else if (value == 'delete') {
+                    _confirmDelete(camp);
+                  }
+                },
+              )
+            : IconButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CampParticipantsScreen(camp: camp),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.people_outline),
+                tooltip: "Participants",
               ),
-            ),
-            const PopupMenuItem(
-              value: 'edit',
-              child: Row(
-                children: [
-                  Icon(Icons.edit, size: 16),
-                  SizedBox(width: 8),
-                  Text("Edit"),
-                ],
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'delete',
-              child: Row(
-                children: [
-                  Icon(Icons.delete, size: 16, color: Colors.red),
-                  SizedBox(width: 8),
-                  Text("Delete", style: TextStyle(color: Colors.red)),
-                ],
-              ),
-            ),
-          ],
-          onSelected: (value) async {
-            if (value == 'participants') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => CampParticipantsScreen(camp: camp),
-                ),
-              );
-            } else if (value == 'edit') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => AddEditCampScreen(camp: camp),
-                ),
-              );
-            } else if (value == 'delete') {
-              _confirmDelete(camp);
-            }
-          },
-        ),
       ),
     );
   }

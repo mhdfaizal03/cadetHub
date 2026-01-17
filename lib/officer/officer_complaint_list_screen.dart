@@ -155,7 +155,7 @@ class _OfficerComplaintListScreenState
                             children: [
                               Text(
                                 DateFormat(
-                                  'MMM d, y • h:mm a',
+                                  'MMM d, yyyy • h:mm a',
                                 ).format(complaint.createdAt),
                                 style: const TextStyle(
                                   color: Colors.grey,

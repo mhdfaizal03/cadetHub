@@ -1,4 +1,5 @@
 import 'package:ncc_cadet/models/user_model.dart';
+import 'package:ncc_cadet/utils/access_control.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ncc_cadet/services/auth_service.dart';
@@ -54,9 +55,15 @@ class _ApproveCadetPageState extends State<ApproveCadetPage> {
               );
             }
 
+            final manageableYears = getManageableYears(officer);
+            final bool canViewAll = manageableYears == null;
+
             return StreamBuilder<QuerySnapshot>(
               // Use the organizationId to filter pending cadets
-              stream: AuthService().pendingCadets(officer.organizationId),
+              stream: AuthService().pendingCadets(
+                officer.organizationId,
+                years: manageableYears,
+              ),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
@@ -90,6 +97,26 @@ class _ApproveCadetPageState extends State<ApproveCadetPage> {
                 }
 
                 final allDocs = snapshot.data!.docs;
+
+                if (!canViewAll) {
+                  // For restricted users, we might still want tabs if they manage multiple years (e.g. 3rd Year UO manages 1st & 2nd)
+                  // Or just show "All" which is implicitly filtered?
+                  // Providing tabs for manageable years would be nice, but "All" is sufficient for now given the limitation of tabs hardcoded.
+                  // Actually, hardcoded tabs might show empty lists for years they can't manage, which is fine.
+                  // But previously we returned just one list.
+                  // Let's stick to showing tabs, they will just be empty for years not in manageableYears.
+                  // However, if we want to show ONLY manageable years, that requires major UI refactor of the TabController length.
+                  // Let's keep the tabs but relying on the stream data which is already filtered.
+                  // But `_buildCadetList` does local filtering too.
+                  return TabBarView(
+                    children: [
+                      _buildCadetList(allDocs, "All"),
+                      _buildCadetList(allDocs, "1st Year"),
+                      _buildCadetList(allDocs, "2nd Year"),
+                      _buildCadetList(allDocs, "3rd Year"),
+                    ],
+                  );
+                }
 
                 return TabBarView(
                   children: [

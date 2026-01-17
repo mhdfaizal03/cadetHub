@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:ncc_cadet/models/attendance_model.dart';
+import 'package:intl/intl.dart';
 import 'package:ncc_cadet/providers/user_provider.dart';
 import 'package:ncc_cadet/services/attendance_service.dart';
 import 'package:provider/provider.dart';
@@ -242,7 +243,9 @@ class AttendanceList extends StatelessWidget {
               // Or maybe 'Parade' is sufficient.
               // Actually, I can format the date.
 
-              final dateStr = record.date;
+              final dateStr = DateFormat(
+                'MMM d, yyyy',
+              ).format(DateTime.parse(record.date));
 
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 10),

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:ncc_cadet/models/user_model.dart';
 import 'package:ncc_cadet/models/exam_model.dart';
 import 'package:ncc_cadet/services/exam_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
+import 'package:ncc_cadet/utils/access_control.dart';
 import 'package:provider/provider.dart';
 import 'package:ncc_cadet/providers/user_provider.dart';
 import 'package:ncc_cadet/officer/add_exam_page.dart';
@@ -53,6 +53,7 @@ class _OfficerExamListScreenState extends State<OfficerExamListScreen> {
       body: StreamBuilder<QuerySnapshot>(
         stream: _examService.getOfficerExams(user.organizationId),
         builder: (context, snapshot) {
+          final manageableYears = getManageableYears(user);
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -84,6 +85,11 @@ class _OfficerExamListScreenState extends State<OfficerExamListScreen> {
               final doc = snapshot.data!.docs[index];
               final data = doc.data() as Map<String, dynamic>;
               final exam = ExamModel.fromMap(data, doc.id);
+
+              if (manageableYears != null &&
+                  !manageableYears.contains(exam.targetYear)) {
+                return const SizedBox.shrink();
+              }
 
               return _buildExamCard(exam);
             },

@@ -7,6 +7,8 @@ import 'package:ncc_cadet/officer/mark_attendance_screen.dart';
 import 'package:ncc_cadet/services/auth_service.dart';
 import 'package:ncc_cadet/services/parade_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
+import 'package:ncc_cadet/utils/access_control.dart';
+import 'package:intl/intl.dart';
 
 class ParadeListScreen extends StatefulWidget {
   const ParadeListScreen({super.key});
@@ -18,57 +20,67 @@ class ParadeListScreen extends StatefulWidget {
 class _ParadeListScreenState extends State<ParadeListScreen> {
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 4,
-      child: Scaffold(
-        backgroundColor: AppTheme.lightGrey,
-        appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(
-              Icons.keyboard_arrow_left,
-              color: Colors.white,
-              size: 28,
+    return FutureBuilder<UserModel?>(
+      future: AuthService().getUserProfile(),
+      builder: (context, userSnapshot) {
+        if (userSnapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            backgroundColor: AppTheme.lightGrey,
+            body: Center(
+              child: CircularProgressIndicator(color: AppTheme.accentBlue),
             ),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: const Text(
-            "Manage Parades",
-            style: TextStyle(color: Colors.white),
-          ),
-          centerTitle: true,
-          backgroundColor: AppTheme.navyBlue,
-          elevation: 0,
-          foregroundColor: Colors.white,
-          bottom: TabBar(
-            labelColor: AppTheme.accentBlue,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: AppTheme.accentBlue,
+          );
+        }
 
-            tabs: const [
-              Tab(text: "All"),
-              Tab(text: "1st Year"),
-              Tab(text: "2nd Year"),
-              Tab(text: "3rd Year"),
-            ],
-          ),
-        ),
-        body: FutureBuilder<UserModel?>(
-          future: AuthService().getUserProfile(),
-          builder: (context, userSnapshot) {
-            if (userSnapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: CircularProgressIndicator(color: AppTheme.accentBlue),
-              );
-            }
+        final officer = userSnapshot.data;
+        if (officer == null) {
+          return const Scaffold(
+            body: Center(child: Text("Error fetching officer profile")),
+          );
+        }
 
-            final officer = userSnapshot.data;
-            if (officer == null) {
-              return const Center(
-                child: Text("Error fetching officer profile"),
-              );
-            }
+        // Determine manageable years
+        final manageableYears = getManageableYears(officer);
+        final bool isRestricted = manageableYears != null;
+        final bool singleYearView = isRestricted && manageableYears.length == 1;
+        final bool canManage = officer.rank != 'Under Officer';
 
-            return StreamBuilder<QuerySnapshot>(
+        return DefaultTabController(
+          length: singleYearView ? 1 : 4,
+          child: Scaffold(
+            backgroundColor: AppTheme.lightGrey,
+            appBar: AppBar(
+              leading: IconButton(
+                icon: const Icon(
+                  Icons.keyboard_arrow_left,
+                  color: Colors.white,
+                  size: 28,
+                ),
+                onPressed: () => Navigator.pop(context),
+              ),
+              title: const Text(
+                "Manage Parades",
+                style: TextStyle(color: Colors.white),
+              ),
+              centerTitle: true,
+              backgroundColor: AppTheme.navyBlue,
+              elevation: 0,
+              foregroundColor: Colors.white,
+              bottom: singleYearView
+                  ? null
+                  : TabBar(
+                      labelColor: AppTheme.accentBlue,
+                      unselectedLabelColor: Colors.grey,
+                      indicatorColor: AppTheme.accentBlue,
+                      tabs: const [
+                        Tab(text: "All"),
+                        Tab(text: "1st Year"),
+                        Tab(text: "2nd Year"),
+                        Tab(text: "3rd Year"),
+                      ],
+                    ),
+            ),
+            body: StreamBuilder<QuerySnapshot>(
               stream: ParadeService().getParadesStream(officer.organizationId),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
@@ -88,40 +100,62 @@ class _ParadeListScreenState extends State<ParadeListScreen> {
                   return _buildEmptyState();
                 }
 
-                final allParades = snapshot.data!.docs.map((doc) {
-                  return ParadeModel.fromMap(
-                    doc.data() as Map<String, dynamic>,
-                    doc.id,
+                final allParades = snapshot.data!.docs
+                    .map((doc) {
+                      return ParadeModel.fromMap(
+                        doc.data() as Map<String, dynamic>,
+                        doc.id,
+                      );
+                    })
+                    .where((p) {
+                      if (manageableYears == null) return true;
+                      return manageableYears.contains(p.targetYear);
+                    })
+                    .toList();
+
+                if (singleYearView) {
+                  return _buildParadeList(
+                    allParades,
+                    manageableYears.first,
+                    canManage,
                   );
-                }).toList();
+                }
 
                 return TabBarView(
                   children: [
-                    _buildParadeList(allParades, "All"),
-                    _buildParadeList(allParades, "1st Year"),
-                    _buildParadeList(allParades, "2nd Year"),
-                    _buildParadeList(allParades, "3rd Year"),
+                    _buildParadeList(allParades, "All", canManage),
+                    _buildParadeList(allParades, "1st Year", canManage),
+                    _buildParadeList(allParades, "2nd Year", canManage),
+                    _buildParadeList(allParades, "3rd Year", canManage),
                   ],
                 );
               },
-            );
-          },
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AddEditParadeScreen()),
-            );
-          },
-          backgroundColor: AppTheme.accentBlue,
-          child: const Icon(Icons.add, color: AppTheme.white),
-        ),
-      ),
+            ),
+            floatingActionButton: canManage
+                ? FloatingActionButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AddEditParadeScreen(),
+                        ),
+                      );
+                    },
+                    backgroundColor: AppTheme.accentBlue,
+                    child: const Icon(Icons.add, color: AppTheme.white),
+                  )
+                : null,
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildParadeList(List<ParadeModel> allParades, String year) {
+  Widget _buildParadeList(
+    List<ParadeModel> allParades,
+    String year,
+    bool canManage,
+  ) {
     // strict filtering logic:
     // If year is "All" -> show everything
     // Else -> show parades where targetYear matches year
@@ -149,7 +183,7 @@ class _ParadeListScreenState extends State<ParadeListScreen> {
       padding: const EdgeInsets.all(16),
       itemCount: filteredParades.length,
       itemBuilder: (context, index) {
-        return _buildParadeCard(context, filteredParades[index]);
+        return _buildParadeCard(context, filteredParades[index], canManage);
       },
     );
   }
@@ -170,7 +204,11 @@ class _ParadeListScreenState extends State<ParadeListScreen> {
     );
   }
 
-  Widget _buildParadeCard(BuildContext context, ParadeModel parade) {
+  Widget _buildParadeCard(
+    BuildContext context,
+    ParadeModel parade,
+    bool canManage,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -224,42 +262,43 @@ class _ParadeListScreenState extends State<ParadeListScreen> {
                   ],
                 ),
               ),
-              PopupMenuButton(
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit, size: 16),
-                        SizedBox(width: 8),
-                        Text("Edit"),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete, size: 16, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text("Delete", style: TextStyle(color: Colors.red)),
-                      ],
-                    ),
-                  ),
-                ],
-                onSelected: (value) {
-                  if (value == 'edit') {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => AddEditParadeScreen(parade: parade),
+              if (canManage)
+                PopupMenuButton(
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit, size: 16),
+                          SizedBox(width: 8),
+                          Text("Edit"),
+                        ],
                       ),
-                    );
-                  } else if (value == 'delete') {
-                    _confirmDelete(context, parade);
-                  }
-                },
-              ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete, size: 16, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text("Delete", style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
+                  ],
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => AddEditParadeScreen(parade: parade),
+                        ),
+                      );
+                    } else if (value == 'delete') {
+                      _confirmDelete(context, parade);
+                    }
+                  },
+                ),
             ],
           ),
           const Divider(),
@@ -269,7 +308,7 @@ class _ParadeListScreenState extends State<ParadeListScreen> {
               const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
               const SizedBox(width: 6),
               Text(
-                "${parade.date} at ${parade.time}",
+                "${DateFormat('MMM d, yyyy').format(DateTime.parse(parade.date))} at ${parade.time}",
                 style: const TextStyle(color: Colors.black87, fontSize: 14),
               ),
             ],
