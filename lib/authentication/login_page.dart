@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:ncc_cadet/authentication/welcome_page.dart';
 import 'package:provider/provider.dart';
 import 'package:ncc_cadet/authentication/cadet_pending_screen.dart';
 import 'package:ncc_cadet/authentication/register_page.dart';
@@ -125,7 +126,7 @@ class _LoginPageState extends State<LoginPage> {
     final showRoleToggle = widget.initialRole == null;
 
     return Scaffold(
-      backgroundColor: AppTheme.lightGrey,
+      backgroundColor: AppTheme.authBackground,
       appBar: AppBar(
         forceMaterialTransparency: true,
         leading: widget.initialRole != null
@@ -134,7 +135,11 @@ class _LoginPageState extends State<LoginPage> {
                   Icons.keyboard_arrow_left,
                   color: AppTheme.navyBlue,
                 ),
-                onPressed: () => Navigator.maybePop(context),
+                onPressed: () => Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const WelcomePage()),
+                  (route) => false,
+                ),
               )
             : null,
       ),

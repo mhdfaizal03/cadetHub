@@ -9,7 +9,7 @@ class WelcomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.lightGrey,
+      backgroundColor: AppTheme.authBackground,
       body: Stack(
         children: [
           // Background Gradient decoration

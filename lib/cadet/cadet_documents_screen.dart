@@ -286,11 +286,18 @@ class _CadetDocumentsScreenState extends State<CadetDocumentsScreen> {
             }
           },
         ),
-        onTap: () {
-          // Open URL? Use a WebView or Launch URL?
-          // For now, let's try to just show a bottom sheet with details or open link
-          // Since I haven't added url_launcher yet, I'll just show info.
-          // Or wait, I can add it now.
+        onTap: () async {
+          final url = data['fileUrl'];
+          if (url != null) {
+            final uri = Uri.parse(url);
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Could not open file link")),
+              );
+            }
+          }
         },
       ),
     ).animate().fade().slideY(begin: 0.1, end: 0);

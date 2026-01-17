@@ -93,7 +93,7 @@ class _RegisterPageState extends State<RegisterPage> {
     final showRoleSelection = widget.initialRole == null;
 
     return Scaffold(
-      backgroundColor: AppTheme.lightGrey,
+      backgroundColor: AppTheme.authBackground,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,

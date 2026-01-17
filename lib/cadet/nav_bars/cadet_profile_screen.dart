@@ -190,6 +190,18 @@ class CadetProfileScreen extends StatelessWidget {
 
                 // Settings & Actions
                 _buildActionTile(
+                  title: "My Documents",
+                  icon: Icons.folder_shared_outlined,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CadetDocumentsScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildActionTile(
                   title: "Edit Profile",
                   icon: Icons.edit_outlined,
                   onTap: () {

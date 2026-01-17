@@ -18,6 +18,7 @@ import 'package:ncc_cadet/officer/mark_attendance_selection_screen.dart';
 import 'package:ncc_cadet/services/attendance_service.dart';
 import 'package:ncc_cadet/services/leave_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
+import 'package:ncc_cadet/officer/officer_exam_list.dart';
 
 class OfficerDashboardScreen extends StatelessWidget {
   const OfficerDashboardScreen({super.key});
@@ -308,6 +309,13 @@ class OfficerDashboardScreen extends StatelessWidget {
                         badgeCount: count,
                       );
                     },
+                  ),
+                  _buildAction(
+                    context,
+                    "Manage Exams",
+                    Icons.assignment_turned_in,
+                    const OfficerExamListScreen(),
+                    9,
                   ),
                 ],
               ),

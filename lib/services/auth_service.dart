@@ -122,6 +122,7 @@ class AuthService {
     } on FirebaseAuthException catch (e) {
       return e.message ?? "Login failed";
     } catch (e) {
+      print("Login Error: $e"); // Added logging
       return "An unexpected error occurred";
     }
   }

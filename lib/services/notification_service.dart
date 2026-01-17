@@ -200,21 +200,29 @@ class NotificationService {
 
   // Subscribe to a topic (e.g., 'organization_XYZ', 'organization_XYZ_year_1st Year')
   Future<void> subscribeToTopic(String topic) async {
-    if (kIsWeb) {
-      debugPrint("Web does not support topic subscription client-side.");
-      return;
+    try {
+      if (kIsWeb) {
+        debugPrint("Web does not support topic subscription client-side.");
+        return;
+      }
+      await _firebaseMessaging.subscribeToTopic(topic);
+      debugPrint("Subscribed to topic: $topic");
+    } catch (e) {
+      debugPrint("Error subscribing to topic: $e");
     }
-    await _firebaseMessaging.subscribeToTopic(topic);
-    debugPrint("Subscribed to topic: $topic");
   }
 
   // Unsubscribe from a topic
   Future<void> unsubscribeFromTopic(String topic) async {
-    if (kIsWeb) {
-      return;
+    try {
+      if (kIsWeb) {
+        return;
+      }
+      await _firebaseMessaging.unsubscribeFromTopic(topic);
+      debugPrint("Unsubscribed from topic: $topic");
+    } catch (e) {
+      debugPrint("Error unsubscribing from topic: $e");
     }
-    await _firebaseMessaging.unsubscribeFromTopic(topic);
-    debugPrint("Unsubscribed from topic: $topic");
   }
 
   // Send Push Notification via FCM Legacy API

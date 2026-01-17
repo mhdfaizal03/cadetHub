@@ -9,7 +9,10 @@ class AppTheme {
     0xFF1D5CFF,
   ); // Brighter Blue for interactions
   static const Color white = Colors.white;
-  static const Color lightGrey = Color(0xFFE2E8F0);
+  static const Color lightGrey = Color(0xFFF5F7FA); // Reverted to original
+  static const Color authBackground = Color(
+    0xFFE2E8F0,
+  ); // New specific color for Auth
   static const Color error = Color(0xFFD32F2F);
   static const Color orange = Color(0xFFFF9800); // Orange
   static const Color lightBlueBg = Color(0xFFE8F0FF);
