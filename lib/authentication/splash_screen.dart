@@ -88,7 +88,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.navyBlue,
+      backgroundColor: AppTheme.lightGrey,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -98,13 +98,14 @@ class _SplashScreenState extends State<SplashScreen> {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.1),
-                border: Border.all(color: AppTheme.gold, width: 2),
+                color: AppTheme.navyBlue.withOpacity(0.05),
+                border: Border.all(color: AppTheme.orange, width: 2),
               ),
-              child: const Icon(
-                Icons.shield_moon, // Placeholder for NCC logo-like icon
-                size: 80,
-                color: AppTheme.gold,
+              child: Image.asset(
+                'assets/cadetHublogo.png',
+                width: 120,
+                height: 120,
+                fit: BoxFit.contain,
               ),
             ).animate().fade(duration: 600.ms).scale(delay: 200.ms),
 
@@ -116,7 +117,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.5,
-                color: AppTheme.white,
+                color: AppTheme.navyBlue,
               ),
             ).animate().fade(delay: 400.ms).slideY(begin: 0.3, end: 0),
 
@@ -124,13 +125,13 @@ class _SplashScreenState extends State<SplashScreen> {
 
             Text(
               'National Cadet Corps Management',
-              style: TextStyle(fontSize: 14, color: Colors.white70),
+              style: TextStyle(fontSize: 14, color: Colors.black54),
             ).animate().fade(delay: 600.ms),
 
             const SizedBox(height: 48),
 
             const CircularProgressIndicator(
-              color: AppTheme.gold,
+              color: AppTheme.orange,
             ).animate().fade(delay: 800.ms),
           ],
         ),

@@ -125,14 +125,14 @@ class _LoginPageState extends State<LoginPage> {
     final showRoleToggle = widget.initialRole == null;
 
     return Scaffold(
-      backgroundColor: AppTheme.navyBlue,
+      backgroundColor: AppTheme.lightGrey,
       appBar: AppBar(
         forceMaterialTransparency: true,
         leading: widget.initialRole != null
             ? IconButton(
                 icon: const Icon(
                   Icons.keyboard_arrow_left,
-                  color: Colors.white,
+                  color: AppTheme.navyBlue,
                 ),
                 onPressed: () => Navigator.maybePop(context),
               )
@@ -145,16 +145,17 @@ class _LoginPageState extends State<LoginPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Header
-              const Icon(
-                Icons.shield_moon,
-                size: 60,
-                color: AppTheme.gold,
+              Image.asset(
+                'assets/cadetHublogo.png',
+                height: 100,
+                width: 100,
+                fit: BoxFit.contain,
               ).animate().scale(duration: 400.ms),
               const SizedBox(height: 16),
               Text(
                 "Welcome Back",
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: Colors.white,
+                  color: AppTheme.navyBlue,
                   fontWeight: FontWeight.bold,
                 ),
               ).animate().fade().slideY(begin: 0.2, end: 0),
@@ -166,7 +167,7 @@ class _LoginPageState extends State<LoginPage> {
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
+                    color: Colors.black.withOpacity(0.05),
                     borderRadius: BorderRadius.circular(50),
                   ),
                   child: Row(
@@ -187,7 +188,7 @@ class _LoginPageState extends State<LoginPage> {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
+                      color: Colors.black.withOpacity(0.1),
                       blurRadius: 20,
                       offset: const Offset(0, 10),
                     ),
@@ -287,7 +288,7 @@ class _LoginPageState extends State<LoginPage> {
                 children: [
                   const Text(
                     "Don't have an account? ",
-                    style: TextStyle(color: Colors.white70),
+                    style: TextStyle(color: Colors.black54),
                   ),
                   GestureDetector(
                     onTap: () => Navigator.push(
@@ -300,7 +301,7 @@ class _LoginPageState extends State<LoginPage> {
                     child: const Text(
                       "Sign Up",
                       style: TextStyle(
-                        color: AppTheme.gold,
+                        color: AppTheme.navyBlue,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -323,7 +324,7 @@ class _LoginPageState extends State<LoginPage> {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? AppTheme.gold : Colors.transparent,
+            color: isSelected ? AppTheme.orange : Colors.transparent,
             borderRadius: BorderRadius.circular(50),
           ),
           child: Text(
@@ -331,7 +332,7 @@ class _LoginPageState extends State<LoginPage> {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: isSelected ? AppTheme.navyBlue : Colors.white70,
+              color: isSelected ? AppTheme.navyBlue : Colors.black54,
             ),
           ),
         ),

@@ -9,7 +9,7 @@ class WelcomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.navyBlue,
+      backgroundColor: AppTheme.lightGrey,
       body: Stack(
         children: [
           // Background Gradient decoration
@@ -21,11 +21,11 @@ class WelcomePage extends StatelessWidget {
               height: 300,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppTheme.gold.withOpacity(0.1),
+                color: AppTheme.navyBlue.withOpacity(0.05),
                 boxShadow: [
                   BoxShadow(
                     blurRadius: 50,
-                    color: AppTheme.gold.withOpacity(0.1),
+                    color: AppTheme.navyBlue.withOpacity(0.05),
                   ),
                 ],
               ),
@@ -39,11 +39,11 @@ class WelcomePage extends StatelessWidget {
               height: 200,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.05),
+                color: AppTheme.orange.withOpacity(0.1),
                 boxShadow: [
                   BoxShadow(
                     blurRadius: 40,
-                    color: Colors.white.withOpacity(0.05),
+                    color: AppTheme.orange.withOpacity(0.1),
                   ),
                 ],
               ),
@@ -67,16 +67,14 @@ class WelcomePage extends StatelessWidget {
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.05),
-                        border: Border.all(
-                          color: AppTheme.gold.withOpacity(0.5),
-                          width: 2,
-                        ),
+                        color: AppTheme.navyBlue.withOpacity(0.05),
+                        border: Border.all(color: AppTheme.orange, width: 2),
                       ),
-                      child: const Icon(
-                        Icons.shield_moon,
-                        size: 64,
-                        color: AppTheme.gold,
+                      child: Image.asset(
+                        'assets/cadetHublogo.png',
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.contain,
                       ),
                     ),
                   ).animate().scale(
@@ -90,7 +88,7 @@ class WelcomePage extends StatelessWidget {
                     "Welcome to CadetHub",
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: Colors.white,
+                      color: AppTheme.navyBlue,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1,
                     ),
@@ -101,10 +99,7 @@ class WelcomePage extends StatelessWidget {
                   Text(
                     "Please select your role to continue",
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                      fontSize: 16,
-                    ),
+                    style: TextStyle(color: Colors.black54, fontSize: 16),
                   ).animate().fade(delay: 400.ms),
 
                   const Spacer(flex: 2),
@@ -114,7 +109,7 @@ class WelcomePage extends StatelessWidget {
                     title: "I am a Cadet",
                     subtitle: "Access training, schedule & profile",
                     icon: Icons.person_outline,
-                    color: AppTheme.gold,
+                    color: AppTheme.orange,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -135,7 +130,7 @@ class WelcomePage extends StatelessWidget {
                     title: "I am an Officer",
                     subtitle: "Manage units, approve cadets & more",
                     icon: Icons.local_police_outlined,
-                    color: Colors.white,
+                    color: AppTheme.navyBlue,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -207,7 +202,7 @@ class _RoleCard extends StatelessWidget {
                     Text(
                       title,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppTheme.navyBlue,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -215,8 +210,8 @@ class _RoleCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
+                      style: const TextStyle(
+                        color: Colors.black54,
                         fontSize: 13,
                       ),
                     ),

@@ -93,12 +93,12 @@ class _RegisterPageState extends State<RegisterPage> {
     final showRoleSelection = widget.initialRole == null;
 
     return Scaffold(
-      backgroundColor: AppTheme.navyBlue,
+      backgroundColor: AppTheme.lightGrey,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.keyboard_arrow_left, color: Colors.white),
+          icon: const Icon(Icons.keyboard_arrow_left, color: AppTheme.navyBlue),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -107,10 +107,19 @@ class _RegisterPageState extends State<RegisterPage> {
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
+              Image.asset(
+                'assets/cadetHublogo.png',
+                height: 80,
+                width: 80,
+                fit: BoxFit.contain,
+              ).animate().fade().scale(delay: 100.ms),
+
+              const SizedBox(height: 16),
+
               Text(
                 "Register as ${_selectedRole == 'cadet' ? 'Cadet' : 'Officer'}",
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: Colors.white,
+                  color: AppTheme.navyBlue,
                   fontWeight: FontWeight.bold,
                 ),
               ).animate().fade().slideY(begin: 0.2, end: 0),
@@ -121,7 +130,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 "Join the National Cadet Corps",
                 style: Theme.of(
                   context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                ).textTheme.bodyMedium?.copyWith(color: Colors.black54),
               ).animate().fade(delay: 100.ms),
 
               const SizedBox(height: 32),
@@ -134,7 +143,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
+                      color: Colors.black.withOpacity(0.1),
                       blurRadius: 20,
                       offset: const Offset(0, 10),
                     ),
@@ -311,7 +320,7 @@ class _RegisterPageState extends State<RegisterPage> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.navyBlue : AppTheme.lightGrey,
+          color: isSelected ? AppTheme.navyBlue : Colors.white,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected ? AppTheme.navyBlue : Colors.grey.shade300,
