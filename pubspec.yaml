@@ -47,6 +47,9 @@ dependencies:
   firebase_storage: ^13.0.5
   file_picker: ^10.3.8
   url_launcher: ^6.3.2
+  firebase_messaging: ^16.1.0
+  flutter_local_notifications: ^19.5.0
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:
@@ -58,6 +61,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -71,8 +75,8 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
+  assets:
+    - assets/
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
@@ -100,3 +104,14 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/cadetHubapplogo.png"
+  min_sdk_android: 21 # android min sdk min:16, default 21
+  web:
+    generate: true
+    image_path: "assets/cadetHubapplogo.png"
+    background_color: "#0A192F"
+    theme_color: "#0A192F"

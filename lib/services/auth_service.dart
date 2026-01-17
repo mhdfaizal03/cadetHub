@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:ncc_cadet/models/user_model.dart';
+import 'package:ncc_cadet/services/notification_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -102,6 +103,21 @@ class AuthService {
   }) async {
     try {
       await _auth.signInWithEmailAndPassword(email: email, password: password);
+      await NotificationService().saveTokenToDatabase();
+
+      // Subscribe to topics
+      final user = await getUserData(_auth.currentUser!.uid);
+      if (user != null) {
+        await NotificationService().subscribeToTopic(
+          'organization_${user.organizationId}',
+        );
+        if (user.role == 'cadet') {
+          await NotificationService().subscribeToTopic(
+            'organization_${user.organizationId}_year_${user.year}',
+          );
+        }
+      }
+
       return null;
     } on FirebaseAuthException catch (e) {
       return e.message ?? "Login failed";
@@ -184,6 +200,17 @@ class AuthService {
 
       // 3. Save to Firestore
       await _firestore.collection('users').doc(uid).set(newUser.toMap());
+      await NotificationService().saveTokenToDatabase();
+
+      // Subscribe to topics
+      await NotificationService().subscribeToTopic(
+        'organization_$organizationId',
+      );
+      if (role == 'cadet') {
+        await NotificationService().subscribeToTopic(
+          'organization_${organizationId}_year_$year',
+        );
+      }
 
       return null;
     } on FirebaseAuthException catch (e) {

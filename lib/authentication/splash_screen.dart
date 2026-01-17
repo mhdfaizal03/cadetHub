@@ -9,6 +9,7 @@ import 'package:ncc_cadet/providers/user_provider.dart';
 import 'package:ncc_cadet/services/auth_service.dart';
 import 'package:ncc_cadet/role_navigation.dart';
 import 'package:ncc_cadet/utils/theme.dart';
+import 'package:ncc_cadet/services/notification_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -27,6 +28,9 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _checkAuth() async {
     // Artificial delay for splash animation
     await Future.delayed(const Duration(seconds: 2));
+
+    // Request Notification Permission on Startup
+    await NotificationService().requestPermission();
 
     if (!mounted) return;
 

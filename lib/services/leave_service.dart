@@ -12,6 +12,13 @@ class LeaveService {
   // Submit Leave Request
   Future<void> requestLeave(LeaveModel leave) async {
     await _leaves.add(leave.toMap());
+
+    // Notify Officers (Push)
+    await NotificationService().sendPushNotification(
+      title: 'New Leave Request',
+      body: '${leave.cadetName} has requested leave for ${leave.reason}',
+      topic: 'organization_${leave.organizationId}_officers',
+    );
   }
 
   // Update Leave Status
@@ -46,6 +53,24 @@ class LeaveService {
             createdAt: DateTime.now(),
           ),
         );
+
+        // Fetch user token for Push logic
+        try {
+          final userDoc = await _firestore
+              .collection('users')
+              .doc(cadetId)
+              .get();
+          if (userDoc.exists && userDoc.data()!.containsKey('fcmToken')) {
+            final token = userDoc.data()!['fcmToken'];
+            await NotificationService().sendPushNotification(
+              title: 'Leave Request $status',
+              body: 'Your leave request has been $status.',
+              token: token,
+            );
+          }
+        } catch (e) {
+          debugPrint("Error sending push to cadet: $e");
+        }
       }
     } catch (e) {
       // Ignore notification errors

@@ -8,6 +8,7 @@ import 'package:ncc_cadet/utils/theme.dart';
 import 'package:ncc_cadet/common/connectivity_wrapper.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:ncc_cadet/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,6 +16,7 @@ void main() async {
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
   );
+  await NotificationService().initialize();
   runApp(const MyApp());
 }
 

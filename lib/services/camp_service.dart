@@ -21,7 +21,20 @@ class CampService {
         type: 'organization',
         targetId: camp.organizationId,
         createdAt: DateTime.now(),
+        targetYear: camp.targetYear,
       ),
+    );
+
+    // Send Push Notification (FCM)
+    String topic = 'organization_${camp.organizationId}';
+    if (camp.targetYear != 'All') {
+      topic = 'organization_${camp.organizationId}_year_${camp.targetYear}';
+    }
+
+    await NotificationService().sendPushNotification(
+      title: 'New Camp Announced',
+      body: 'Camp: ${camp.name}\nStart Date: ${camp.startDate}',
+      topic: topic,
     );
   }
 
