@@ -4,6 +4,7 @@ import 'package:ncc_cadet/models/user_model.dart';
 import 'package:ncc_cadet/services/attendance_service.dart';
 import 'package:ncc_cadet/services/auth_service.dart';
 import 'package:ncc_cadet/services/parade_service.dart';
+import 'package:ncc_cadet/services/pdf_generator_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
 import 'package:ncc_cadet/utils/access_control.dart';
 import 'package:intl/intl.dart';
@@ -20,6 +21,30 @@ class _OfficerAttendanceReportState extends State<OfficerAttendanceReport> {
   final AuthService _authService = AuthService();
   final AttendanceService _attendanceService = AttendanceService();
   final ParadeService _paradeService = ParadeService();
+  final PdfGeneratorService _pdfService = PdfGeneratorService();
+
+  DateTime? _startDate;
+  DateTime? _endDate;
+  String _selectedYear = 'All'; // Default filter
+
+  // Helper to pick date range
+  Future<void> _pickDateRange() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      initialDateRange: _startDate != null && _endDate != null
+          ? DateTimeRange(start: _startDate!, end: _endDate!)
+          : null,
+    );
+
+    if (picked != null) {
+      setState(() {
+        _startDate = picked.start;
+        _endDate = picked.end;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,184 +67,173 @@ class _OfficerAttendanceReportState extends State<OfficerAttendanceReport> {
         }
 
         final manageableYears = getManageableYears(officer);
-        final bool isRestricted = manageableYears != null;
-        final bool singleYearView = isRestricted && manageableYears.length == 1;
+        // Manageable years filter logic
+        // If restricted, _selectedYear must be within manageableYears or 'All' (if implied)
+        // For simplicity, let's just let StreamBuilder handle permissions, but UI filtering:
 
-        return DefaultTabController(
-          length: singleYearView ? 1 : 4,
-          child: Scaffold(
-            backgroundColor: AppTheme.lightGrey,
-            appBar: AppBar(
-              backgroundColor: AppTheme.navyBlue,
-              elevation: 0,
-              foregroundColor: Colors.white,
-              leading: IconButton(
-                icon: const Icon(
-                  Icons.keyboard_arrow_left,
-                  color: Colors.white,
-                  size: 28,
-                ),
-                onPressed: () => Navigator.pop(context),
+        List<String> yearOptions = ['All', '1st Year', '2nd Year', '3rd Year'];
+        if (manageableYears != null) {
+          // If restricted, only show allowed years
+          yearOptions = manageableYears;
+          if (!yearOptions.contains(_selectedYear)) {
+            _selectedYear = yearOptions.first;
+          }
+        }
+
+        return Scaffold(
+          backgroundColor: AppTheme.lightGrey,
+          appBar: AppBar(
+            backgroundColor: AppTheme.navyBlue,
+            elevation: 0,
+            foregroundColor: Colors.white,
+            leading: IconButton(
+              icon: const Icon(
+                Icons.keyboard_arrow_left,
+                color: Colors.white,
+                size: 28,
               ),
-              title: const Text(
-                "Unit Attendance Report",
-                style: TextStyle(color: Colors.white),
-              ),
-              bottom: singleYearView
-                  ? null
-                  : TabBar(
-                      labelColor: AppTheme.accentBlue,
-                      unselectedLabelColor: Colors.grey,
-                      indicatorColor: AppTheme.accentBlue,
-                      tabs: const [
-                        Tab(text: "All"),
-                        Tab(text: "1st Year"),
-                        Tab(text: "2nd Year"),
-                        Tab(text: "3rd Year"),
-                      ],
+              onPressed: () => Navigator.pop(context),
+            ),
+            title: const Text(
+              "Attendance Report",
+              style: TextStyle(color: Colors.white),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.download),
+                tooltip: "Download Report",
+                onPressed: () {
+                  // Trigger download
+                  // We need the data first. This is slightly tricky with Streams.
+                  // Ideally we refactor to not nest streams this deeply or use a Provider.
+                  // For now, I'll show a SnackBar guiding user to button in body?
+                  // Or better, let's move the logic to body or use a scoped builder variable?
+                  // I'll add a FAB for downloading which is inside the context of data if possible,
+                  // OR I'll make the download button actually just trigger a function that refetches or uses state?
+                  // Streams doesn't persist state easily.
+                  // I will put a "Download PDF" button inside the builder.
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Please use the Download button below"),
                     ),
-            ),
-            body: StreamBuilder<QuerySnapshot>(
-              stream: _authService.getCadetsStream(
-                officer.organizationId,
-                years: manageableYears,
+                  );
+                },
               ),
-              builder: (context, cadetSnapshot) {
-                if (!cadetSnapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final cadets = cadetSnapshot.data!.docs;
-
-                return StreamBuilder<QuerySnapshot>(
-                  stream: _attendanceService.getOrganizationAttendance(
-                    officer.organizationId,
-                  ),
-                  builder: (context, attendanceSnapshot) {
-                    if (!attendanceSnapshot.hasData) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    final attendance = attendanceSnapshot.data!.docs;
-
-                    return StreamBuilder<QuerySnapshot>(
-                      stream: _paradeService.getParadesStream(
-                        officer.organizationId,
-                      ),
-                      builder: (context, paradeSnapshot) {
-                        if (!paradeSnapshot.hasData) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-                        final parades = paradeSnapshot.data!.docs;
-
-                        if (singleYearView) {
-                          return _buildReportContent(
-                            manageableYears.first,
-                            cadets,
-                            attendance,
-                            parades,
-                          );
-                        }
-
-                        return TabBarView(
-                          children: [
-                            _buildReportContent(
-                              "All",
-                              cadets,
-                              attendance,
-                              parades,
-                            ),
-                            _buildReportContent(
-                              "1st Year",
-                              cadets,
-                              attendance,
-                              parades,
-                            ),
-                            _buildReportContent(
-                              "2nd Year",
-                              cadets,
-                              attendance,
-                              parades,
-                            ),
-                            _buildReportContent(
-                              "3rd Year",
-                              cadets,
-                              attendance,
-                              parades,
-                            ),
-                          ],
-                        );
-                      },
-                    );
-                  },
-                );
-              },
+            ],
+          ),
+          body: StreamBuilder<QuerySnapshot>(
+            stream: _authService.getCadetsStream(
+              officer.organizationId,
+              years: manageableYears,
             ),
+            builder: (context, cadetSnapshot) {
+              if (!cadetSnapshot.hasData)
+                return const Center(child: CircularProgressIndicator());
+              final cadets = cadetSnapshot.data!.docs;
+
+              return StreamBuilder<QuerySnapshot>(
+                stream: _attendanceService.getOrganizationAttendance(
+                  officer.organizationId,
+                ),
+                builder: (context, attendanceSnapshot) {
+                  if (!attendanceSnapshot.hasData)
+                    return const Center(child: CircularProgressIndicator());
+                  final attendance = attendanceSnapshot.data!.docs;
+
+                  return StreamBuilder<QuerySnapshot>(
+                    stream: _paradeService.getParadesStream(
+                      officer.organizationId,
+                    ),
+                    builder: (context, paradeSnapshot) {
+                      if (!paradeSnapshot.hasData)
+                        return const Center(child: CircularProgressIndicator());
+                      final parades = paradeSnapshot.data!.docs;
+
+                      return _buildReportBody(
+                        officer,
+                        manageableYears,
+                        cadets,
+                        attendance,
+                        parades,
+                        yearOptions,
+                      );
+                    },
+                  );
+                },
+              );
+            },
           ),
         );
       },
     );
   }
 
-  Widget _buildReportContent(
-    String year,
+  Widget _buildReportBody(
+    UserModel officer,
+    List<String>? manageableYears,
     List<QueryDocumentSnapshot> allCadets,
     List<QueryDocumentSnapshot> allAttendance,
     List<QueryDocumentSnapshot> allParades,
+    List<String> yearOptions,
   ) {
-    // 1. Filter Cadets by Year
-    final filteredCadets = year == 'All'
-        ? allCadets
+    // ---- FILTERING LOGIC ----
+
+    // 1. Filter Cadets by Year (if selected)
+    final filteredCadets = (_selectedYear == 'All' && manageableYears == null)
+        ? allCadets // All allowed if no restriction
         : allCadets.where((doc) {
             final data = doc.data() as Map<String, dynamic>;
-            return data['year'] == year;
-          }).toList();
+            return data['year'] == _selectedYear ||
+                (manageableYears != null &&
+                    manageableYears.contains(data['year']) &&
+                    _selectedYear == 'All');
+          }).toList(); // If All selected but restricted, shows all manageable
 
     final targetCadetIds = filteredCadets.map((e) => e.id).toSet();
 
-    // 2. Filter Attendance by Cadet IDs (Target Group)
-    final filteredAttendance = allAttendance.where((doc) {
-      final data = doc.data() as Map<String, dynamic>;
-      return targetCadetIds.contains(data['cadetId']);
-    }).toList();
-
-    // 3. Filter Parades (that have happened)
-    // We only care about past parades or today's parades for reports basically
-    final now = DateTime.now();
-    final pastParades = allParades.where((doc) {
+    // 2. Filter Parades by Date Range
+    List<QueryDocumentSnapshot> filteredParades = allParades.where((doc) {
       final data = doc.data() as Map<String, dynamic>;
       final dateStr = data['date'] as String;
-      // Simple string comparison works for ISO dates, but let's be safe if format varies
-      // Assuming YYYY-MM-DD from other files
-      return dateStr.compareTo(DateFormat('yyyy-MM-dd').format(now)) <= 0;
+      final date = DateTime.parse(dateStr);
+
+      bool inRange = true;
+      if (_startDate != null) inRange = inRange && !date.isBefore(_startDate!);
+      if (_endDate != null)
+        inRange =
+            inRange &&
+            !date.isAfter(
+              _endDate!.add(const Duration(days: 1)),
+            ); // Inclusive end
+
+      return inRange;
     }).toList();
 
-    // Re-sort past parades descending (most recent first)
-    pastParades.sort((a, b) {
-      final dA = (a.data() as Map<String, dynamic>)['date'];
-      final dB = (b.data() as Map<String, dynamic>)['date'];
-      return dB.compareTo(dA);
-    });
+    // Sort parades desc
+    filteredParades.sort(
+      (a, b) => (b.data() as Map)['date'].compareTo((a.data() as Map)['date']),
+    );
 
-    // 4. Calculate Stats
+    // 3. Filter Attendance by Cadet IDs AND Parades
+    final targetParadeIds = filteredParades.map((e) => e.id).toSet();
+    final filteredAttendance = allAttendance.where((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      return targetCadetIds.contains(data['cadetId']) &&
+          targetParadeIds.contains(data['paradeId']);
+    }).toList();
+
+    // ---- STATS -----
     final totalRecords = filteredAttendance.length;
     final presentCount = filteredAttendance
-        .where(
-          (doc) => (doc.data() as Map<String, dynamic>)['status'] == 'Present',
-        )
+        .where((d) => (d.data() as Map)['status'] == 'Present')
         .length;
     final absentCount = filteredAttendance
-        .where(
-          (doc) => (doc.data() as Map<String, dynamic>)['status'] == 'Absent',
-        )
+        .where((d) => (d.data() as Map)['status'] == 'Absent')
         .length;
     final excusedCount = filteredAttendance
-        .where(
-          (doc) => (doc.data() as Map<String, dynamic>)['status'] == 'Excused',
-        )
+        .where((d) => (d.data() as Map)['status'] == 'Excused')
         .length;
-
-    final double avgAttendance = totalRecords == 0
+    final avgAttendance = totalRecords == 0
         ? 0.0
         : (presentCount / totalRecords);
 
@@ -228,95 +242,147 @@ class _OfficerAttendanceReportState extends State<OfficerAttendanceReport> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle("Unit Overview ($year)"),
-          const SizedBox(height: 12),
-          _buildUnitSummaryCard(avgAttendance),
-          const SizedBox(height: 28),
-
-          _sectionTitle("Status Breakdown"),
-          const SizedBox(height: 12),
-          _buildBreakdownRow(presentCount, absentCount, excusedCount),
-          const SizedBox(height: 28),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _sectionTitle("Recent Parades"),
-              // TextButton(onPressed: () {}, child: const Text("View All")),
-            ],
+          // Filters
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: yearOptions.contains(_selectedYear)
+                            ? _selectedYear
+                            : yearOptions.first,
+                        decoration: const InputDecoration(
+                          labelText: "Year Group",
+                          border: OutlineInputBorder(),
+                        ),
+                        items: yearOptions
+                            .map(
+                              (y) => DropdownMenuItem(value: y, child: Text(y)),
+                            )
+                            .toList(),
+                        onChanged: (val) =>
+                            setState(() => _selectedYear = val!),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: _pickDateRange,
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: "Date Range",
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.date_range),
+                    ),
+                    child: Text(
+                      _startDate == null
+                          ? "All Dates"
+                          : "${DateFormat('MMM d, yyyy').format(_startDate!)} - ${DateFormat('MMM d, yyyy').format(_endDate!)}",
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
-          _buildParadeList(pastParades, filteredAttendance, targetCadetIds),
+          const SizedBox(height: 20),
+
+          // Summary
+          _buildUnitSummaryCard(avgAttendance),
+          const SizedBox(height: 20),
+          _buildBreakdownRow(presentCount, absentCount, excusedCount),
+          const SizedBox(height: 20),
+
+          // Download Button
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.file_download),
+              label: const Text("Download PDF Report"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.navyBlue,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () async {
+                // Generate PDF
+                await _pdfService.generateAttendancePDF(
+                  attendanceRecords: filteredAttendance,
+                  parades: filteredParades,
+                  title: "Attendance Report - $_selectedYear",
+                  dateRange: _startDate == null
+                      ? "All Dates"
+                      : "${DateFormat('MMM d').format(_startDate!)} - ${DateFormat('MMM d, yyyy').format(_endDate!)}",
+                  unitSummary:
+                      "Avg: ${(avgAttendance * 100).toStringAsFixed(1)}% | Present: $presentCount | Absent: $absentCount",
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // List
+          Text(
+            "Parades (${filteredParades.length})",
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          ),
+          const SizedBox(height: 10),
+          _buildParadeList(filteredParades, filteredAttendance),
         ],
       ),
     );
   }
 
-  // ---------------- UI COMPONENTS ----------------
-
-  Widget _sectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.bold,
-        color: Colors.black87,
-      ),
-    );
-  }
-
+  // Reused UI components (simplified)
   Widget _buildUnitSummaryCard(double percentage) {
     final percString = "${(percentage * 100).toStringAsFixed(1)}%";
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: _cardStyle(),
-      child: Column(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Average Attendance",
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    percString,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.accentBlue,
-                    ),
-                  ),
-                ],
+              const Text(
+                "Average Attendance",
+                style: TextStyle(color: Colors.grey),
               ),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppTheme.lightBlueBg,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.trending_up,
+              Text(
+                percString,
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
                   color: AppTheme.accentBlue,
-                  size: 26,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 18),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(
-              value: percentage,
-              minHeight: 8,
-              backgroundColor: AppTheme.lightBlueBg,
-              valueColor: const AlwaysStoppedAnimation(AppTheme.accentBlue),
-            ),
-          ),
+          CircularProgressIndicator(
+            value: percentage,
+            color: AppTheme.accentBlue,
+          ), // Simplified
         ],
       ),
     );
@@ -325,142 +391,77 @@ class _OfficerAttendanceReportState extends State<OfficerAttendanceReport> {
   Widget _buildBreakdownRow(int present, int absent, int excused) {
     return Row(
       children: [
-        _buildSmallStatCard("Present", "$present", Colors.green),
+        Expanded(child: _statCard("Present", "$present", Colors.green)),
         const SizedBox(width: 12),
-        _buildSmallStatCard("Absent", "$absent", Colors.red),
+        Expanded(child: _statCard("Absent", "$absent", Colors.red)),
         const SizedBox(width: 12),
-        _buildSmallStatCard("On Leave", "$excused", Colors.orange),
+        Expanded(child: _statCard("Excused", "$excused", Colors.orange)),
       ],
     );
   }
 
-  Widget _buildSmallStatCard(String label, String value, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 18),
-        decoration: _cardStyle(),
-        child: Column(
-          children: [
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
+  Widget _statCard(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: color,
             ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
+          ),
+          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        ],
       ),
     );
   }
 
   Widget _buildParadeList(
     List<QueryDocumentSnapshot> parades,
-    List<QueryDocumentSnapshot> attendanceRecords,
-    Set<String> targetCadetIds,
+    List<QueryDocumentSnapshot> attendance,
   ) {
-    if (parades.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(20.0),
-          child: Text("No recent parades found"),
-        ),
-      );
-    }
-
-    // Limit to latest 5
-    final recentParades = parades.take(5).toList();
-
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: recentParades.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final paradeDoc = recentParades[index];
-        final paradeData = paradeDoc.data() as Map<String, dynamic>;
-        final paradeId = paradeDoc.id;
-
-        // Calculate stats for this specific parade & year group
-        // Filter records for this parade AND our target cadets
-        final paradeRecords = attendanceRecords.where((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          return data['paradeId'] == paradeId;
-        }).toList();
-
-        final total = paradeRecords.length;
-        final present = paradeRecords
-            .where(
-              (doc) =>
-                  (doc.data() as Map<String, dynamic>)['status'] == 'Present',
-            )
+      itemCount: parades.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (ctx, index) {
+        final p = parades[index].data() as Map<String, dynamic>;
+        final pid = parades[index].id;
+        final date = p['date'];
+        final records = attendance
+            .where((d) => (d.data() as Map)['paradeId'] == pid)
+            .toList();
+        final present = records
+            .where((d) => (d.data() as Map)['status'] == 'Present')
             .length;
-
-        // If no records found for this parade (attendance not taken), show N/A
-        final percString = total == 0
+        final total = records.length;
+        final perc = total == 0
             ? "N/A"
             : "${((present / total) * 100).toStringAsFixed(0)}%";
 
         return Container(
-          decoration: _cardStyle(),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 6,
+            title: Text(p['name'] ?? 'Parade'),
+            subtitle: Text(date),
+            trailing: Text(
+              perc,
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-            title: Text(
-              paradeData['name'] ?? 'Parade',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-            ),
-            subtitle: Text(
-              DateFormat(
-                'MMM d, yyyy',
-              ).format(DateTime.parse(paradeData['date'])),
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  percString,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                // const SizedBox(width: 6),
-                // const Icon(Icons.chevron_right, color: Colors.grey),
-              ],
-            ),
-            // onTap: () {},
           ),
         );
       },
-    );
-  }
-
-  BoxDecoration _cardStyle() {
-    return BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: Colors.grey.shade200),
-      boxShadow: [
-        BoxShadow(
-          color: AppTheme.navyBlue.withOpacity(0.04),
-          blurRadius: 10,
-          offset: const Offset(0, 4),
-        ),
-      ],
     );
   }
 }

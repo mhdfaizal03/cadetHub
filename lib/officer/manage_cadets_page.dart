@@ -6,6 +6,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ncc_cadet/officer/officer_cadet_records_screen.dart';
 import 'package:ncc_cadet/services/auth_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
+import 'package:ncc_cadet/services/pdf_generator_service.dart';
+import 'package:ncc_cadet/services/attendance_service.dart';
+import 'package:ncc_cadet/services/exam_service.dart';
+import 'package:ncc_cadet/models/exam_model.dart';
+import 'package:ncc_cadet/models/exam_result_model.dart';
 
 class ManageCadetsPage extends StatefulWidget {
   const ManageCadetsPage({super.key});
@@ -203,14 +208,94 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
     );
   }
 
+  // ... inside _ManageCadetsPageState
+
+  Future<void> _generateReport(
+    String uid,
+    Map<String, dynamic> cadetData,
+  ) async {
+    // Show Loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final pdfService = PdfGeneratorService();
+      final attendanceService = AttendanceService();
+      final examService = ExamService();
+
+      // 1. Fetch Attendance
+      final attendanceSnapshot = await attendanceService
+          .getCadetAttendance(uid)
+          .first;
+      final attendanceDocs = attendanceSnapshot.docs;
+      final totalAtt = attendanceDocs.length;
+      final presentAtt = attendanceDocs
+          .where(
+            (d) => (d.data() as Map<String, dynamic>)['status'] == 'Present',
+          )
+          .length;
+      final absentAtt = attendanceDocs
+          .where(
+            (d) => (d.data() as Map<String, dynamic>)['status'] == 'Absent',
+          )
+          .length;
+      final percentage = totalAtt > 0
+          ? ((presentAtt / totalAtt) * 100).toStringAsFixed(1)
+          : "0.0";
+
+      final attendanceStats = {
+        'total': totalAtt,
+        'present': presentAtt,
+        'absent': absentAtt,
+        'percentage': percentage,
+      };
+
+      // 2. Fetch Exam Results
+      final resultSnapshot = await examService.getCadetExamResults(uid).first;
+      final examResults = resultSnapshot.docs
+          .map(
+            (d) =>
+                ExamResultModel.fromMap(d.data() as Map<String, dynamic>, d.id),
+          )
+          .toList();
+
+      // 3. Fetch All Exams (to resolve titles)
+      // Ideally query only relevant exams, but fetching all for org is safer for title lookup
+      final examsSnapshot = await examService
+          .getOfficerExams(cadetData['organizationId'] ?? '')
+          .first;
+      final allExams = examsSnapshot.docs
+          .map((d) => ExamModel.fromMap(d.data() as Map<String, dynamic>, d.id))
+          .toList();
+
+      Navigator.pop(context); // Close loading
+
+      await pdfService.generateIndividualCadetReport(
+        cadet: cadetData,
+        attendanceStats: attendanceStats,
+        examResults: examResults,
+        allExams: allExams,
+      );
+    } catch (e) {
+      Navigator.pop(context); // Close loading
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error generating report: $e")));
+    }
+  }
+
+  // Update _buildCadetCard to include Print button
   Widget _buildCadetCard(
     String uid,
     Map<String, dynamic> data,
     BuildContext context,
     String currentUserRank,
   ) {
+    // ... existing code ...
     final name = data['name'] ?? 'Unknown';
-    // ... (rest of variable declarations)
     final id = data['cadetId'] ?? 'N/A';
     final rank = data['rank'] ?? 'Cadet';
     final status = data['status'] == 1
@@ -220,7 +305,6 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
     final year = data['year'] ?? '1st Year';
 
     return Container(
-      // ... (container decoration)
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -234,7 +318,6 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ... (name, id, badges)
                 Row(
                   children: [
                     Text(
@@ -250,6 +333,54 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
                   id,
                   style: const TextStyle(color: Colors.grey, fontSize: 13),
                 ),
+                if (data['phone'] != null &&
+                    data['phone'].toString().isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.phone,
+                          size: 12,
+                          color: Colors.blueGrey,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          data['phone'],
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.blueGrey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (data['address'] != null &&
+                    data['address'].toString().isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2.0),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on,
+                          size: 12,
+                          color: Colors.blueGrey,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            data['address'],
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.blueGrey,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 8,
@@ -271,33 +402,26 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
               ],
             ),
           ),
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(
-                  Icons.folder_shared_outlined,
-                  size: 20,
-                  color: Colors.blue,
-                ),
-                onPressed: () {
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.grey),
+            onSelected: (value) {
+              switch (value) {
+                case 'records':
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => OfficerCadetRecordsScreen(
                         cadetId: uid,
                         cadetName: name,
+                        organizationId: data['organizationId'],
                       ),
                     ),
                   );
-                },
-              ),
-              IconButton(
-                icon: const Icon(
-                  Icons.edit_outlined,
-                  size: 20,
-                  color: Colors.grey,
-                ),
-                onPressed: () {
+                  break;
+                case 'report':
+                  _generateReport(uid, data);
+                  break;
+                case 'edit':
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -305,25 +429,75 @@ class _ManageCadetsPageState extends State<ManageCadetsPage> {
                           AddEditCadetPage(cadetData: {'uid': uid, ...data}),
                     ),
                   );
-                },
-              ),
-              if (currentUserRank !=
-                  'Under Officer') // Prevent UO from deleting
-                IconButton(
-                  icon: const Icon(
-                    Icons.delete_outline,
-                    size: 20,
-                    color: Colors.redAccent,
+                  break;
+                case 'delete':
+                  _confirmDelete(uid, name);
+                  break;
+              }
+            },
+            itemBuilder: (context) {
+              return [
+                const PopupMenuItem(
+                  value: 'records',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.folder_shared_outlined,
+                        color: Colors.blue,
+                        size: 20,
+                      ),
+                      SizedBox(width: 12),
+                      Text("View Records"),
+                    ],
                   ),
-                  onPressed: () => _confirmDelete(uid, name),
                 ),
-            ],
+                const PopupMenuItem(
+                  value: 'report',
+                  child: Row(
+                    children: [
+                      Icon(Icons.print, color: Colors.purple, size: 20),
+                      SizedBox(width: 12),
+                      Text("Generate Report"),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit_outlined, color: Colors.grey, size: 20),
+                      SizedBox(width: 12),
+                      Text("Edit Details"),
+                    ],
+                  ),
+                ),
+                if (currentUserRank != 'Under Officer')
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.delete_outline,
+                          color: Colors.redAccent,
+                          size: 20,
+                        ),
+                        SizedBox(width: 12),
+                        Text(
+                          "Delete Cadet",
+                          style: TextStyle(color: Colors.redAccent),
+                        ),
+                      ],
+                    ),
+                  ),
+              ];
+            },
           ),
         ],
       ),
     );
   }
 
+  // ... existing widget helpers
   Widget _buildBadge(String label, Color bg, Color text) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

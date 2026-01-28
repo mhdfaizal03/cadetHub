@@ -50,14 +50,21 @@ class AttendanceService {
 
   // Mark Single Attendance (Upsert logic)
   Future<void> markAttendance(AttendanceModel record) async {
-    // Check if existing record exists for this parade & cadet
-    final query = await _attendance
-        .where('paradeId', isEqualTo: record.paradeId)
-        .where('cadetId', isEqualTo: record.cadetId)
-        .get();
+    Query query;
+    if (record.type == 'Camp' && record.campId != null) {
+      query = _attendance
+          .where('campId', isEqualTo: record.campId)
+          .where('cadetId', isEqualTo: record.cadetId);
+    } else {
+      query = _attendance
+          .where('paradeId', isEqualTo: record.paradeId)
+          .where('cadetId', isEqualTo: record.cadetId);
+    }
 
-    if (query.docs.isNotEmpty) {
-      await _attendance.doc(query.docs.first.id).update({
+    final snapshot = await query.get();
+
+    if (snapshot.docs.isNotEmpty) {
+      await _attendance.doc(snapshot.docs.first.id).update({
         'status': record.status,
       });
     } else {
@@ -72,6 +79,17 @@ class AttendanceService {
         .snapshots()
         .handleError((e) {
           debugPrint('Error fetching attendance for parade $paradeId: $e');
+          throw e;
+        });
+  }
+
+  // Get Attendance for a specific Camp
+  Stream<QuerySnapshot> getAttendanceForCamp(String campId) {
+    return _attendance
+        .where('campId', isEqualTo: campId)
+        .snapshots()
+        .handleError((e) {
+          debugPrint('Error fetching attendance for camp $campId: $e');
           throw e;
         });
   }

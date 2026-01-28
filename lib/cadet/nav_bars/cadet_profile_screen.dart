@@ -182,6 +182,23 @@ class CadetProfileScreen extends StatelessWidget {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          _buildDetailItem(
+                            "Phone",
+                            profile.phone ?? 'N/A',
+                            Icons.phone_outlined,
+                          ),
+                          const SizedBox(width: 5),
+                          _buildDetailItem(
+                            "Address",
+                            profile.address ?? 'N/A',
+                            Icons.home_outlined,
+                            isFullWidth: true,
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),

@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:ncc_cadet/cadet/cadet_attendance_report_page.dart';
+import 'package:ncc_cadet/cadet/cadet_parades_screen.dart';
 import 'package:ncc_cadet/cadet/cadet_camp_details_page.dart';
 import 'package:ncc_cadet/cadet/cadet_lave_request_screen.dart';
 import 'package:ncc_cadet/cadet/cadet_complaint_screen.dart';
@@ -395,9 +395,9 @@ class CadetDashboardScreen extends StatelessWidget {
                 children: [
                   _buildAction(
                     context,
-                    "Attendance",
-                    Icons.assignment_turned_in_outlined,
-                    const CadetAttendanceReportScreen(),
+                    "Parades", // Renamed from Attendance
+                    Icons.flag_outlined, // Changed icon to Flag
+                    const CadetParadesScreen(), // Updated Page
                     0,
                   ),
                   StreamBuilder<QuerySnapshot>(
@@ -470,7 +470,9 @@ class CadetDashboardScreen extends StatelessWidget {
                     const CadetComplaintScreen(),
                     7,
                   ),
-                  if (user?.rank == 'Senior Under Officer')
+                  if (user?.rank == 'Senior Under Officer' ||
+                      user?.rank == 'Under Officer' ||
+                      user?.rank == 'Sergeant')
                     _buildAction(
                       context,
                       "Mark Attendance",
@@ -478,7 +480,8 @@ class CadetDashboardScreen extends StatelessWidget {
                       const MarkAttendanceSelectionScreen(),
                       8,
                     ),
-                  if (user?.rank == 'Senior Under Officer')
+                  if (user?.rank == 'Senior Under Officer' ||
+                      user?.rank == 'Under Officer')
                     _buildAction(
                       context,
                       "Manage Cadets",

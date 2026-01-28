@@ -17,8 +17,11 @@ class _AddExamPageState extends State<AddExamPage> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
-  final _dateController = TextEditingController();
-  final _timeController = TextEditingController();
+  final _placeController = TextEditingController();
+  final _startDateController = TextEditingController();
+  final _endDateController = TextEditingController();
+  final _startTimeController = TextEditingController();
+  final _endTimeController = TextEditingController();
 
   String _targetYear = '2nd Year'; // Default
   String _examType = 'B Certificate'; // Default based on year usually
@@ -81,7 +84,7 @@ class _AddExamPageState extends State<AddExamPage> {
               ),
               const SizedBox(height: 16),
 
-              // Exam Type (Auto-filled but editable logic could be here, strict for now)
+              // Exam Type
               DropdownButtonFormField<String>(
                 value: _examType,
                 decoration: _inputDecoration("Exam Type"),
@@ -114,6 +117,17 @@ class _AddExamPageState extends State<AddExamPage> {
               const SizedBox(height: 16),
 
               TextFormField(
+                controller: _placeController,
+                decoration: _inputDecoration(
+                  "Exam Place",
+                  hint: "e.g., Parade Ground",
+                  icon: Icons.location_on_outlined,
+                ),
+                validator: (val) => val!.isEmpty ? "Required" : null,
+              ),
+              const SizedBox(height: 16),
+
+              TextFormField(
                 controller: _descController,
                 decoration: _inputDecoration(
                   "Description",
@@ -128,9 +142,9 @@ class _AddExamPageState extends State<AddExamPage> {
                 children: [
                   Expanded(
                     child: TextFormField(
-                      controller: _dateController,
+                      controller: _startDateController,
                       decoration: _inputDecoration(
-                        "Date",
+                        "Start Date",
                         icon: Icons.calendar_today,
                       ),
                       readOnly: true,
@@ -142,7 +156,7 @@ class _AddExamPageState extends State<AddExamPage> {
                           lastDate: DateTime(2100),
                         );
                         if (picked != null) {
-                          _dateController.text = DateFormat(
+                          _startDateController.text = DateFormat(
                             'MMM d, yyyy',
                           ).format(picked);
                         }
@@ -153,9 +167,39 @@ class _AddExamPageState extends State<AddExamPage> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: TextFormField(
-                      controller: _timeController,
+                      controller: _endDateController,
                       decoration: _inputDecoration(
-                        "Time",
+                        "End Date",
+                        icon: Icons.calendar_today,
+                      ),
+                      readOnly: true,
+                      onTap: () async {
+                        DateTime? picked = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime(2100),
+                        );
+                        if (picked != null) {
+                          _endDateController.text = DateFormat(
+                            'MMM d, yyyy',
+                          ).format(picked);
+                        }
+                      },
+                      validator: (val) => val!.isEmpty ? "Required" : null,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _startTimeController,
+                      decoration: _inputDecoration(
+                        "Start Time",
                         icon: Icons.access_time,
                       ),
                       readOnly: true,
@@ -164,8 +208,29 @@ class _AddExamPageState extends State<AddExamPage> {
                           context: context,
                           initialTime: TimeOfDay.now(),
                         );
-                        if (picked != null) {
-                          _timeController.text = picked.format(context);
+                        if (picked != null && mounted) {
+                          _startTimeController.text = picked.format(context);
+                        }
+                      },
+                      validator: (val) => val!.isEmpty ? "Required" : null,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _endTimeController,
+                      decoration: _inputDecoration(
+                        "End Time",
+                        icon: Icons.access_time_filled,
+                      ),
+                      readOnly: true,
+                      onTap: () async {
+                        TimeOfDay? picked = await showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay.now(),
+                        );
+                        if (picked != null && mounted) {
+                          _endTimeController.text = picked.format(context);
                         }
                       },
                       validator: (val) => val!.isEmpty ? "Required" : null,
@@ -236,15 +301,18 @@ class _AddExamPageState extends State<AddExamPage> {
     try {
       final user = Provider.of<UserProvider>(context, listen: false).user!;
       final newExam = ExamModel(
-        id: user.roleId,
         title: _titleController.text.trim(),
         description: _descController.text.trim(),
-        date: _dateController.text, // Stores "January 24, 2026"
-        time: _timeController.text,
+        startDate: _startDateController.text,
+        endDate: _endDateController.text, // Added
+        startTime: _startTimeController.text,
+        endTime: _endTimeController.text,
+        place: _placeController.text.trim(),
         type: _examType,
         targetYear: _targetYear,
         organizationId: user.organizationId,
         createdAt: DateTime.now(),
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
       );
 
       await ExamService().createExam(newExam);

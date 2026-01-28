@@ -7,7 +7,7 @@ import 'package:ncc_cadet/cadet/nav_bars/cadet_notification_screen.dart';
 
 import 'package:ncc_cadet/officer/leave_approval_page.dart';
 import 'package:ncc_cadet/officer/manage_cadets_page.dart';
-import 'package:ncc_cadet/officer/officer_attendance_report_page.dart';
+import 'package:ncc_cadet/officer/reports/reports_dashboard.dart';
 import 'package:ncc_cadet/officer/parade_list_screen.dart';
 import 'package:ncc_cadet/officer/send_notifications_page.dart';
 import 'package:ncc_cadet/providers/user_provider.dart';
@@ -229,7 +229,7 @@ class OfficerDashboardScreen extends StatelessWidget {
                     context,
                     "Reports",
                     Icons.list,
-                    const OfficerAttendanceReport(),
+                    const ReportsDashboard(),
                     3,
                   ),
                   if (user.rank != 'Under Officer')

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:provider/provider.dart';
 import 'package:ncc_cadet/providers/user_provider.dart';
 import 'package:ncc_cadet/services/document_service.dart';
@@ -151,14 +151,14 @@ class _CadetDocumentsScreenState extends State<CadetDocumentsScreen> {
       ),
       body: user == null
           ? const Center(child: CircularProgressIndicator())
-          : StreamBuilder<QuerySnapshot>(
+          : StreamBuilder<List<Map<String, dynamic>>>(
               stream: _docService.getUserDocuments(user.uid),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -188,11 +188,10 @@ class _CadetDocumentsScreenState extends State<CadetDocumentsScreen> {
 
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: snapshot.data!.docs.length,
+                  itemCount: snapshot.data!.length,
                   itemBuilder: (context, index) {
-                    final doc = snapshot.data!.docs[index];
-                    final data = doc.data() as Map<String, dynamic>;
-                    return _buildDocumentCard(doc.id, data);
+                    final data = snapshot.data![index];
+                    return _buildDocumentCard(data['id'], data);
                   },
                 );
               },
@@ -200,8 +199,51 @@ class _CadetDocumentsScreenState extends State<CadetDocumentsScreen> {
     );
   }
 
+  Future<void> _updateDocument(
+    String docId,
+    String userId,
+    String oldFileUrl,
+  ) async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+    );
+
+    if (result != null) {
+      if (!mounted) return;
+      setState(() => _isUploading = true);
+
+      final error = await _docService.updateDocument(
+        docId: docId,
+        file: result.files.single,
+        userId: userId,
+        oldFileUrl: oldFileUrl,
+      );
+
+      if (mounted) {
+        setState(() => _isUploading = false);
+        if (error != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Update Failed: $error"),
+              backgroundColor: Colors.red,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Document Updated Successfully!"),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   Widget _buildDocumentCard(String docId, Map<String, dynamic> data) {
     final status = data['status'] ?? 'Pending';
+    final user = Provider.of<UserProvider>(context, listen: false).user;
     Color statusColor = Colors.orange;
     if (status == 'Approved') statusColor = Colors.green;
     if (status == 'Rejected') statusColor = Colors.red;
@@ -255,47 +297,116 @@ class _CadetDocumentsScreenState extends State<CadetDocumentsScreen> {
             ),
           ],
         ),
-        trailing: IconButton(
-          icon: const Icon(Icons.delete_outline, color: Colors.red),
-          onPressed: () async {
-            final confirm = await showDialog<bool>(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: const Text("Delete Document"),
-                content: const Text(
-                  "Are you sure you want to delete this document?",
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text("Cancel"),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    child: const Text(
-                      "Delete",
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ),
-                ],
-              ),
-            );
+        trailing: PopupMenuButton<String>(
+          onSelected: (action) async {
+            if (action == 'Download') {
+              final fileUrl = data['fileUrl'];
+              if (fileUrl != null) {
+                try {
+                  // Get generated signed download URL
+                  final downloadUrl = await _docService.getDownloadUrl(fileUrl);
 
-            if (confirm == true) {
-              await _docService.deleteDocument(docId, data['fileUrl']);
+                  final uri = Uri.parse(downloadUrl ?? fileUrl);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  } else {
+                    // Fallback attempt without check
+                    if (!await launchUrl(
+                      uri,
+                      mode: LaunchMode.externalApplication,
+                    )) {
+                      throw 'Could not launch URL';
+                    }
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Could not download file: $e")),
+                    );
+                  }
+                }
+              }
+            } else if (action == 'Update') {
+              if (user != null) {
+                _updateDocument(docId, user.uid, data['fileUrl']);
+              }
+            } else if (action == 'Delete') {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text("Delete Document"),
+                  content: const Text(
+                    "Are you sure you want to delete this document?",
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text("Cancel"),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text(
+                        "Delete",
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true) {
+                await _docService.deleteDocument(docId, data['fileUrl']);
+              }
             }
           },
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'Download',
+              child: Row(
+                children: [
+                  Icon(Icons.download, size: 20, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Text("Download"),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'Update',
+              child: Row(
+                children: [
+                  Icon(Icons.edit, size: 20, color: Colors.orange),
+                  SizedBox(width: 8),
+                  Text("Update"),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'Delete',
+              child: Row(
+                children: [
+                  Icon(Icons.delete, size: 20, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text("Delete"),
+                ],
+              ),
+            ),
+          ],
         ),
         onTap: () async {
           final url = data['fileUrl'];
           if (url != null) {
-            final uri = Uri.parse(url);
-            if (await canLaunchUrl(uri)) {
-              await launchUrl(uri, mode: LaunchMode.externalApplication);
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Could not open file link")),
-              );
+            try {
+              final uri = Uri.parse(url);
+              // Try launching regardless of canLaunchUrl check, which can be flaky on Android
+              if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+                throw 'Could not launch $url';
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Could not open file: $e")),
+                );
+              }
             }
           }
         },

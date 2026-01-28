@@ -14,8 +14,8 @@ List<String>? getManageableYears(UserModel user) {
     return null; // All years
   }
 
-  if (user.rank == 'Under Officer') {
-    // New Requirement: Under Officer manages ONLY their own year.
+  if (user.rank == 'Under Officer' || user.rank == 'Sergeant') {
+    // New Requirement: Under Officer and Sergeant manages ONLY their own year.
     if (user.year.isNotEmpty) {
       return [user.year];
     }

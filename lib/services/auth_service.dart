@@ -181,6 +181,8 @@ class AuthService {
     required String roleId,
     required String organizationId,
     required String year,
+    String? phone,
+    String? address,
   }) async {
     try {
       // 0. Organization Logic
@@ -250,6 +252,8 @@ class AuthService {
         organizationId: organizationId,
         year: year,
         status: 0, // Default to pending
+        phone: phone,
+        address: address,
       );
 
       // 3. Save to Firestore
@@ -306,6 +310,8 @@ class AuthService {
     required String year,
     required String rank,
     required int status,
+    String? phone,
+    String? address,
   }) async {
     FirebaseApp? secondaryApp;
     try {
@@ -350,6 +356,8 @@ class AuthService {
         year: year,
         status: status, // Officer sets status (Active/Pending)
         rank: rank,
+        phone: phone,
+        address: address,
       );
 
       // We use the MAIN firestore instance to save the data

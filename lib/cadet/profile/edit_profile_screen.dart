@@ -16,8 +16,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController(); // Read-only usually
-  final _phoneController =
-      TextEditingController(); // Not in model yet, but useful
+  final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
   bool _isLoading = false;
 
   @override
@@ -25,7 +25,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.initState();
     _nameController.text = widget.user.name;
     _emailController.text = widget.user.email;
-    // _phoneController.text = widget.user.phone ?? "";
+    _phoneController.text = widget.user.phone ?? "";
+    _addressController.text = widget.user.address ?? "";
   }
 
   @override
@@ -33,6 +34,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _addressController.dispose();
     super.dispose();
   }
 
@@ -44,7 +46,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     try {
       await AuthService().updateUserData(widget.user.uid, {
         'name': _nameController.text.trim(),
-        // 'phone': _phoneController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'address': _addressController.text.trim(),
       });
 
       if (mounted) {
@@ -136,12 +139,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
               const SizedBox(height: 16),
 
-              // _buildTextField(
-              //   label: "Phone Number",
-              //   controller: _phoneController,
-              //   icon: Icons.phone_outlined,
-              //   keyboardType: TextInputType.phone,
-              // ),
+              _buildTextField(
+                label: "Phone Number",
+                controller: _phoneController,
+                icon: Icons.phone_outlined,
+                keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: 16),
+              _buildTextField(
+                label: "Address",
+                controller: _addressController,
+                icon: Icons.home_outlined,
+                maxLines: 2,
+              ),
               const SizedBox(height: 40),
 
               SizedBox(
@@ -189,9 +199,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     String? hint,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
+    int maxLines = 1,
   }) {
     return TextFormField(
       controller: controller,
+      maxLines: maxLines,
       readOnly: readOnly,
       keyboardType: keyboardType,
       validator: validator,

@@ -22,7 +22,7 @@ class _AddEditParadeScreenState extends State<AddEditParadeScreen> {
   final _descriptionController = TextEditingController();
 
   bool _isLoading = false;
-  String _targetYear = '1st Year'; // Default to All
+  String _targetYear = 'All'; // Default to All
   // Removed static primaryColor, using AppTheme now
 
   @override
@@ -205,7 +205,7 @@ class _AddEditParadeScreenState extends State<AddEditParadeScreen> {
                         ),
                       ),
                     ),
-                    items: ['1st Year', '2nd Year', '3rd Year']
+                    items: ['All', '1st Year', '2nd Year', '3rd Year']
                         .map(
                           (label) => DropdownMenuItem(
                             value: label,

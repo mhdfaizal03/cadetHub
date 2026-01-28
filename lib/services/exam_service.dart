@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:ncc_cadet/models/exam_model.dart';
+import 'package:ncc_cadet/models/exam_result_model.dart';
 import 'package:ncc_cadet/services/notification_service.dart';
 
 class ExamService {
@@ -26,7 +27,8 @@ class ExamService {
       await _notificationService.sendPushNotification(
         topic: topic,
         title: "New Exam Scheduled: ${exam.title}",
-        body: "Date: ${exam.date} | Time: ${exam.time}. Tap to view details.",
+        body:
+            "Date: ${exam.startDate} - ${exam.endDate} | Time: ${exam.startTime} - ${exam.endTime}. Place: ${exam.place}. Tap to view details.",
       );
 
       debugPrint("Exam created and notification sent to topic: $topic");
@@ -72,5 +74,34 @@ class ExamService {
       debugPrint("Error deleting exam: $e");
       rethrow;
     }
+  }
+  // --- Exam Results ---
+
+  // Mark/Update Result
+  Future<void> markExamResult(ExamResultModel result) async {
+    try {
+      // Store in a subcollection or separate collection?
+      // Separate 'exam_results' collection is easier to query by cadetId across all exams.
+      await _db.collection('exam_results').doc(result.id).set(result.toMap());
+    } catch (e) {
+      debugPrint("Error marking result: $e");
+      rethrow;
+    }
+  }
+
+  // Get Results for a specific Exam (Officer view)
+  Stream<QuerySnapshot> getExamResults(String examId) {
+    return _db
+        .collection('exam_results')
+        .where('examId', isEqualTo: examId)
+        .snapshots();
+  }
+
+  // Get Results for a specific Cadet (Cadet view)
+  Stream<QuerySnapshot> getCadetExamResults(String cadetId) {
+    return _db
+        .collection('exam_results')
+        .where('cadetId', isEqualTo: cadetId)
+        .snapshots();
   }
 }

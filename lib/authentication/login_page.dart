@@ -151,7 +151,7 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               // Header
               Image.asset(
-                'assets/cadetHublogo.png',
+                'assets/cadetHubapplogo.png',
                 height: 100,
                 width: 100,
                 fit: BoxFit.contain,

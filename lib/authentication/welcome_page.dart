@@ -71,7 +71,7 @@ class WelcomePage extends StatelessWidget {
                         border: Border.all(color: AppTheme.orange, width: 2),
                       ),
                       child: Image.asset(
-                        'assets/cadetHublogo.png',
+                        'assets/cadetHubapplogo.png',
                         width: 80,
                         height: 80,
                         fit: BoxFit.contain,

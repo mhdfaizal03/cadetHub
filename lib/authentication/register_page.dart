@@ -17,8 +17,10 @@ class _RegisterPageState extends State<RegisterPage> {
 
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController(); // New
+  final _addressController = TextEditingController(); // New
   final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController(); // New
+  final _confirmPasswordController = TextEditingController();
   final _roleIdController = TextEditingController();
   final _orgIdController = TextEditingController();
 
@@ -26,7 +28,7 @@ class _RegisterPageState extends State<RegisterPage> {
   String _selectedYear = '1st Year';
   bool _isLoading = false;
   bool _isObscured = true;
-  bool _isConfirmObscured = true; // New
+  bool _isConfirmObscured = true;
 
   @override
   void initState() {
@@ -38,8 +40,10 @@ class _RegisterPageState extends State<RegisterPage> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose(); // Dispose
+    _addressController.dispose(); // Dispose
     _passwordController.dispose();
-    _confirmPasswordController.dispose(); // Dispose
+    _confirmPasswordController.dispose();
     _roleIdController.dispose();
     _orgIdController.dispose();
     super.dispose();
@@ -60,6 +64,8 @@ class _RegisterPageState extends State<RegisterPage> {
         roleId: _roleIdController.text.trim(),
         organizationId: _orgIdController.text.trim(),
         year: _selectedYear,
+        phone: _phoneController.text.trim(),
+        address: _addressController.text.trim(),
       );
 
       if (error != null) {
@@ -71,7 +77,7 @@ class _RegisterPageState extends State<RegisterPage> {
               content: Text("Registration Successful! Please Login."),
             ),
           );
-          Navigator.pop(context); // Go back to Login
+          Navigator.pop(context);
         }
       }
     } catch (e) {
@@ -108,7 +114,7 @@ class _RegisterPageState extends State<RegisterPage> {
           child: Column(
             children: [
               Image.asset(
-                'assets/cadetHublogo.png',
+                'assets/cadetHubapplogo.png',
                 height: 80,
                 width: 80,
                 fit: BoxFit.contain,
@@ -184,6 +190,34 @@ class _RegisterPageState extends State<RegisterPage> {
                         ),
                         validator: (v) =>
                             v!.isEmpty ? "Email is required" : null,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // New Fields
+                      TextFormField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        decoration: const InputDecoration(
+                          labelText: "Phone Number",
+                          prefixIcon: Icon(Icons.phone_outlined),
+                        ),
+                        validator: (v) {
+                          if (v!.isEmpty) return "Phone is required";
+                          if (v.length < 10) return "Invalid phone number";
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      TextFormField(
+                        controller: _addressController,
+                        maxLines: 2,
+                        decoration: const InputDecoration(
+                          labelText: "Address",
+                          prefixIcon: Icon(Icons.home_outlined),
+                        ),
+                        validator: (v) =>
+                            v!.isEmpty ? "Address is required" : null,
                       ),
                       const SizedBox(height: 16),
 

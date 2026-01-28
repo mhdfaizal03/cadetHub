@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import 'package:ncc_cadet/models/exam_model.dart';
 import 'package:ncc_cadet/services/exam_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
@@ -27,75 +28,128 @@ class _OfficerExamListScreenState extends State<OfficerExamListScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9F9F9),
-      appBar: AppBar(
-        title: const Text("Manage Exams"),
-        backgroundColor: AppTheme.navyBlue,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.keyboard_arrow_left),
-          onPressed: () => Navigator.pop(context),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF9F9F9),
+        appBar: AppBar(
+          title: const Text("Manage Exams"),
+          backgroundColor: AppTheme.navyBlue,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.keyboard_arrow_left),
+            onPressed: () => Navigator.pop(context),
+          ),
+          bottom: const TabBar(
+            indicatorColor: AppTheme.gold,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            tabs: [
+              Tab(text: "Upcoming"),
+              Tab(text: "History"),
+            ],
+          ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddExamPage()),
-          );
-        },
-        backgroundColor: AppTheme.navyBlue,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text("Create Exam", style: TextStyle(color: Colors.white)),
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _examService.getOfficerExams(user.organizationId),
-        builder: (context, snapshot) {
-          final manageableYears = getManageableYears(user);
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.assignment_outlined,
-                    size: 64,
-                    color: Colors.grey[300],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    "No exams created yet",
-                    style: TextStyle(color: Colors.grey[600], fontSize: 16),
-                  ),
-                ],
-              ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const AddExamPage()),
             );
-          }
+          },
+          backgroundColor: AppTheme.navyBlue,
+          icon: const Icon(Icons.add, color: Colors.white),
+          label: const Text(
+            "Create Exam",
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+        body: StreamBuilder<QuerySnapshot>(
+          stream: _examService.getOfficerExams(user.organizationId),
+          builder: (context, snapshot) {
+            final manageableYears = getManageableYears(user);
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: snapshot.data!.docs.length,
-            itemBuilder: (context, index) {
-              final doc = snapshot.data!.docs[index];
-              final data = doc.data() as Map<String, dynamic>;
-              final exam = ExamModel.fromMap(data, doc.id);
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return const Center(child: Text("No exams created yet"));
+            }
 
+            final allExams = snapshot.data!.docs.map((doc) {
+              return ExamModel.fromMap(
+                doc.data() as Map<String, dynamic>,
+                doc.id,
+              );
+            }).toList();
+
+            final now = DateTime.now();
+            final today = DateTime(now.year, now.month, now.day);
+
+            List<ExamModel> upcoming = [];
+            List<ExamModel> history = [];
+
+            for (var exam in allExams) {
+              // Filter by manageable years logic
               if (manageableYears != null &&
                   !manageableYears.contains(exam.targetYear)) {
-                return const SizedBox.shrink();
+                continue;
               }
 
-              return _buildExamCard(exam);
-            },
-          );
-        },
+              bool isHistory = false;
+              try {
+                DateTime examEnd = DateFormat(
+                  'MMM d, yyyy',
+                ).parse(exam.endDate);
+                if (examEnd.isBefore(today)) {
+                  isHistory = true;
+                }
+              } catch (e) {
+                // Fallback
+              }
+
+              if (isHistory)
+                history.add(exam);
+              else
+                upcoming.add(exam);
+            }
+
+            return TabBarView(
+              children: [
+                _buildExamList(upcoming, "No upcoming exams"),
+                _buildExamList(history, "No exam history"),
+              ],
+            );
+          },
+        ),
       ),
+    );
+  }
+
+  Widget _buildExamList(List<ExamModel> exams, String emptyMsg) {
+    if (exams.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.assignment_outlined, size: 64, color: Colors.grey[300]),
+            const SizedBox(height: 16),
+            Text(
+              emptyMsg,
+              style: TextStyle(color: Colors.grey[600], fontSize: 16),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: exams.length,
+      itemBuilder: (context, index) {
+        return _buildExamCard(exams[index]);
+      },
     );
   }
 
@@ -162,14 +216,33 @@ class _OfficerExamListScreenState extends State<OfficerExamListScreen> {
                 Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
                 const SizedBox(width: 4),
                 Text(
-                  exam.date,
+                  "${exam.startDate} - ${exam.endDate}",
                   style: TextStyle(color: Colors.grey[800], fontSize: 13),
                 ),
-                const SizedBox(width: 16),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
                 Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
                 const SizedBox(width: 4),
                 Text(
-                  exam.time,
+                  "${exam.startTime} - ${exam.endTime}",
+                  style: TextStyle(color: Colors.grey[800], fontSize: 13),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  Icons.location_on_outlined,
+                  size: 16,
+                  color: Colors.grey[600],
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  exam.place,
                   style: TextStyle(color: Colors.grey[800], fontSize: 13),
                 ),
               ],

@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 import 'package:ncc_cadet/providers/user_provider.dart';
 
 import 'package:ncc_cadet/common/shimmer_loading.dart';
+import 'package:ncc_cadet/officer/reports/reports_dashboard.dart';
 
 class OfficerProfileScreen extends StatelessWidget {
   const OfficerProfileScreen({super.key});
@@ -191,6 +192,18 @@ class OfficerProfileScreen extends StatelessWidget {
                 const SizedBox(height: 30),
 
                 // Settings & Actions
+                _buildActionTile(
+                  title: "Reports & Analytics",
+                  icon: Icons.bar_chart_outlined,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ReportsDashboard(),
+                      ),
+                    );
+                  },
+                ),
                 _buildActionTile(
                   title: "Edit Profile",
                   icon: Icons.edit_outlined,

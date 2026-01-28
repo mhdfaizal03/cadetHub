@@ -19,6 +19,8 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
   late TextEditingController _nameController;
   late TextEditingController _idController;
   late TextEditingController _emailController;
+  late TextEditingController _phoneController; // New
+  late TextEditingController _addressController; // New
   late TextEditingController _passwordController;
 
   // State for dropdowns
@@ -43,6 +45,12 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
     _emailController = TextEditingController(
       text: widget.cadetData?['email'] ?? '',
     );
+    _phoneController = TextEditingController(
+      text: widget.cadetData?['phone'] ?? '',
+    );
+    _addressController = TextEditingController(
+      text: widget.cadetData?['address'] ?? '',
+    );
     _passwordController = TextEditingController();
 
     if (widget.cadetData != null) {
@@ -61,6 +69,8 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
     _nameController.dispose();
     _idController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -135,6 +145,25 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
                 inputType: TextInputType.emailAddress,
                 readOnly: isEditing, // Changing email is complex (auth sync)
               ),
+              const SizedBox(height: 20),
+              // Phone
+              _buildTextField(
+                label: "Phone Number",
+                controller: _phoneController,
+                hint: "+91 XXXXX XXXXX",
+                icon: Icons.phone_outlined,
+                inputType: TextInputType.phone,
+              ),
+              const SizedBox(height: 20),
+              // Address
+              _buildTextField(
+                label: "Address",
+                controller: _addressController,
+                hint: "Enter residential address",
+                icon: Icons.home_outlined,
+                maxLines: 2,
+              ),
+
               if (!isEditing) ...[
                 const SizedBox(height: 20),
                 _buildTextField(
@@ -252,6 +281,8 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
           year: _selectedYear,
           rank: _selectedRank,
           status: statusInt,
+          phone: _phoneController.text.trim(),
+          address: _addressController.text.trim(),
         );
 
         if (error != null) {
@@ -277,6 +308,8 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
           'year': _selectedYear,
           'status': statusInt,
           'cadetId': _idController.text.trim(),
+          'phone': _phoneController.text.trim(),
+          'address': _addressController.text.trim(),
           // 'email' change is complex, skipping for now
         });
 
@@ -322,6 +355,7 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
     bool readOnly = false,
     bool isPassword = false,
     TextInputType inputType = TextInputType.text,
+    int maxLines = 1, // Added
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -333,6 +367,7 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
+          maxLines: maxLines,
           readOnly: readOnly,
           obscureText: isPassword,
           keyboardType: inputType,

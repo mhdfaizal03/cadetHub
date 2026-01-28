@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
+import 'package:file_picker/file_picker.dart';
+
 import 'package:ncc_cadet/services/document_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -7,11 +9,13 @@ import 'package:url_launcher/url_launcher.dart';
 class OfficerCadetRecordsScreen extends StatefulWidget {
   final String cadetId;
   final String cadetName;
+  final String organizationId;
 
   const OfficerCadetRecordsScreen({
     super.key,
     required this.cadetId,
     required this.cadetName,
+    required this.organizationId,
   });
 
   @override
@@ -21,6 +25,89 @@ class OfficerCadetRecordsScreen extends StatefulWidget {
 
 class _OfficerCadetRecordsScreenState extends State<OfficerCadetRecordsScreen> {
   final DocumentService _docService = DocumentService();
+
+  // ... imports at top (add file_picker)
+  // Inside State class:
+  Future<void> _uploadDocument() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+    );
+
+    if (result != null) {
+      PlatformFile file = result.files.first;
+
+      // Show dialog to select document type
+      String? docType = await showDialog<String>(
+        context: context,
+        builder: (context) {
+          String selectedType = 'Medical Report';
+          // Officers might upload different types than cadets
+          final types = [
+            'SSLC Certificate',
+            'Aadhar Card',
+            'Bank Passbook',
+            'PAN Card',
+            'Medical Report',
+            'Camp Certificate',
+            'Merit Certificate',
+            'Disciplinary Record',
+            'Other',
+          ];
+
+          return AlertDialog(
+            title: const Text("Select Document Type"),
+            content: DropdownButtonFormField<String>(
+              value: selectedType,
+              items: types
+                  .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                  .toList(),
+              onChanged: (val) => selectedType = val!,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Cancel"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, selectedType),
+                child: const Text("Upload"),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (docType == null) return;
+
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Uploading document...")));
+      }
+
+      final error = await _docService.uploadDocument(
+        file: file,
+        userId: widget.cadetId,
+        docType: docType,
+        userName: widget.cadetName,
+        organizationId: widget.organizationId,
+      );
+
+      if (mounted) {
+        if (error == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Document uploaded successfully")),
+          );
+        } else {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text("Upload failed: $error")));
+        }
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,14 +123,20 @@ class _OfficerCadetRecordsScreenState extends State<OfficerCadetRecordsScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: StreamBuilder<QuerySnapshot>(
+      floatingActionButton: FloatingActionButton(
+        onPressed: _uploadDocument,
+        backgroundColor: AppTheme.navyBlue,
+        child: const Icon(Icons.upload_file, color: Colors.white),
+      ),
+      body: StreamBuilder<List<Map<String, dynamic>>>(
+        // ... rest of stream builder
         stream: _docService.getUserDocuments(widget.cadetId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const Center(
               child: Text("No documents found for this cadet."),
             );
@@ -51,11 +144,10 @@ class _OfficerCadetRecordsScreenState extends State<OfficerCadetRecordsScreen> {
 
           return ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: snapshot.data!.docs.length,
+            itemCount: snapshot.data!.length,
             itemBuilder: (context, index) {
-              final doc = snapshot.data!.docs[index];
-              final data = doc.data() as Map<String, dynamic>;
-              return _buildDocumentCard(doc.id, data);
+              final data = snapshot.data![index];
+              return _buildDocumentCard(data['id'], data);
             },
           );
         },
@@ -64,10 +156,17 @@ class _OfficerCadetRecordsScreenState extends State<OfficerCadetRecordsScreen> {
   }
 
   Widget _buildDocumentCard(String docId, Map<String, dynamic> data) {
-    final status = data['status'] ?? 'Pending';
-    Color statusColor = Colors.orange;
-    if (status == 'Approved') statusColor = Colors.green;
-    if (status == 'Rejected') statusColor = Colors.red;
+    final createdAt = data['created_at'];
+
+    String dateStr = "";
+    if (createdAt != null) {
+      try {
+        final date = DateTime.parse(createdAt);
+        dateStr = "${date.day}/${date.month}/${date.year}";
+      } catch (e) {
+        dateStr = "";
+      }
+    }
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -100,48 +199,50 @@ class _OfficerCadetRecordsScreenState extends State<OfficerCadetRecordsScreen> {
               style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Text(
-                  "Status: ",
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    status,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: statusColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            if (dateStr.isNotEmpty)
+              Text(
+                "Uploaded: $dateStr",
+                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+              ),
           ],
         ),
         trailing: PopupMenuButton<String>(
-          onSelected: (action) {
-            if (action == 'Approve') {
-              _docService.updateDocumentStatus(docId, 'Approved');
-            } else if (action == 'Reject') {
-              _docService.updateDocumentStatus(docId, 'Rejected');
+          onSelected: (action) async {
+            if (action == 'Download') {
+              final fileUrl = data['fileUrl'];
+              if (fileUrl != null) {
+                try {
+                  // Get generated signed download URL
+                  final downloadUrl = await _docService.getDownloadUrl(fileUrl);
+
+                  final uri = Uri.parse(downloadUrl ?? fileUrl);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  } else {
+                    if (!await launchUrl(
+                      uri,
+                      mode: LaunchMode.externalApplication,
+                    )) {
+                      throw 'Could not launch URL';
+                    }
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Could not download file: $e")),
+                    );
+                  }
+                }
+              }
             } else if (action == 'Delete') {
               _confirmDelete(docId, data['fileUrl']);
             }
           },
           itemBuilder: (context) => [
-            const PopupMenuItem(value: 'Approve', child: Text("Approve")),
-            const PopupMenuItem(value: 'Reject', child: Text("Reject")),
+            const PopupMenuItem(
+              value: 'Download',
+              child: Text("Download", style: TextStyle(color: Colors.blue)),
+            ),
             const PopupMenuItem(
               value: 'Delete',
               child: Text("Delete", style: TextStyle(color: Colors.red)),
@@ -149,14 +250,19 @@ class _OfficerCadetRecordsScreenState extends State<OfficerCadetRecordsScreen> {
           ],
         ),
         onTap: () async {
-          final url = Uri.parse(data['fileUrl']);
-          if (await canLaunchUrl(url)) {
-            await launchUrl(url, mode: LaunchMode.externalApplication);
-          } else {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Could not open file")),
-              );
+          final url = data['fileUrl'];
+          if (url != null) {
+            try {
+              final uri = Uri.parse(url);
+              if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+                throw 'Could not launch $url';
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Could not open file: $e")),
+                );
+              }
             }
           }
         },
@@ -165,6 +271,7 @@ class _OfficerCadetRecordsScreenState extends State<OfficerCadetRecordsScreen> {
   }
 
   Future<void> _confirmDelete(String docId, String fileUrl) async {
+    // ... delete logic
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(

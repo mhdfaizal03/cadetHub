@@ -119,7 +119,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 border: Border.all(color: AppTheme.orange, width: 2),
               ),
               child: Image.asset(
-                'assets/cadetHublogo.png',
+                'assets/cadetHubapplogo.png',
                 width: 120,
                 height: 120,
                 fit: BoxFit.contain,
