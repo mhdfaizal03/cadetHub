@@ -23,7 +23,7 @@ class CadetAttendanceReportScreen extends StatelessWidget {
     final history = attendanceRecords.map((att) {
       final data = att.data() as Map<String, dynamic>;
       final paradeId = data['paradeId'];
-      final parade = allParades.firstWhere(
+      final parade = allParades.cast<QueryDocumentSnapshot>().firstWhere(
         (p) => p.id == paradeId,
         orElse: () => allParades.first,
       );

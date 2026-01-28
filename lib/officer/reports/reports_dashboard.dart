@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:ncc_cadet/officer/reports/views/attendance_report_view.dart';
-import 'package:ncc_cadet/officer/reports/views/exam_report_view.dart'; // Will create this
-import 'package:ncc_cadet/officer/reports/views/camp_report_view.dart'; // Will create this
-import 'package:ncc_cadet/officer/reports/views/parade_report_view.dart'; // Will create this
+import 'package:ncc_cadet/officer/reports/views/exam_report_view.dart';
+import 'package:ncc_cadet/officer/reports/views/camp_report_view.dart';
+import 'package:ncc_cadet/officer/reports/views/parade_report_view.dart';
 import 'package:ncc_cadet/utils/theme.dart';
 
 class ReportsDashboard extends StatelessWidget {
@@ -25,8 +25,8 @@ class ReportsDashboard extends StatelessWidget {
           ),
           bottom: const TabBar(
             isScrollable: true,
-            indicatorColor: AppTheme.gold,
-            labelColor: Colors.white,
+            indicatorColor: AppTheme.accentBlue,
+            labelColor: AppTheme.accentBlue,
             unselectedLabelColor: Colors.white70,
             tabs: [
               Tab(text: "Attendance"),

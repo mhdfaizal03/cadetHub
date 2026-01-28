@@ -33,8 +33,9 @@ class _OfficerExamReportPageState extends State<OfficerExamReportPage> {
           );
         }
         final officer = userSnapshot.data;
-        if (officer == null)
+        if (officer == null) {
           return const Scaffold(body: Center(child: Text("Error")));
+        }
 
         final manageableYears = getManageableYears(officer);
         List<String> yearOptions = ['All', '1st Year', '2nd Year', '3rd Year'];
@@ -60,8 +61,9 @@ class _OfficerExamReportPageState extends State<OfficerExamReportPage> {
           body: StreamBuilder<QuerySnapshot>(
             stream: _examService.getOfficerExams(officer.organizationId),
             builder: (context, snapshot) {
-              if (!snapshot.hasData)
+              if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
+              }
 
               final allExams = snapshot.data!.docs.map((doc) {
                 return ExamModel.fromMap(
@@ -88,7 +90,7 @@ class _OfficerExamReportPageState extends State<OfficerExamReportPage> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: DropdownButtonFormField<String>(
-                        value: yearOptions.contains(_selectedYear)
+                        initialValue: yearOptions.contains(_selectedYear)
                             ? _selectedYear
                             : yearOptions.first,
                         decoration: const InputDecoration(

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:ncc_cadet/models/user_model.dart';
 import 'package:ncc_cadet/models/leave_model.dart';
 import 'package:ncc_cadet/models/notification_model.dart';
 import 'package:ncc_cadet/providers/user_provider.dart';

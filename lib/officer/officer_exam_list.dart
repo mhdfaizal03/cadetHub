@@ -35,36 +35,41 @@ class _OfficerExamListScreenState extends State<OfficerExamListScreen> {
         appBar: AppBar(
           title: const Text("Manage Exams"),
           backgroundColor: AppTheme.navyBlue,
-          foregroundColor: Colors.white,
+          foregroundColor: AppTheme.white,
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.keyboard_arrow_left),
             onPressed: () => Navigator.pop(context),
           ),
-          bottom: const TabBar(
-            indicatorColor: AppTheme.gold,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            tabs: [
+          bottom: TabBar(
+            indicatorColor: AppTheme.accentBlue,
+            labelColor: AppTheme.accentBlue,
+            unselectedLabelColor: AppTheme.white.withOpacity(0.7),
+            tabs: const [
               Tab(text: "Upcoming"),
               Tab(text: "History"),
             ],
           ),
         ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const AddExamPage()),
-            );
-          },
-          backgroundColor: AppTheme.navyBlue,
-          icon: const Icon(Icons.add, color: Colors.white),
-          label: const Text(
-            "Create Exam",
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
+        floatingActionButton:
+            (user.role == 'officer' || user.rank == 'Senior Under Officer')
+            ? FloatingActionButton.extended(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AddExamPage(),
+                    ),
+                  );
+                },
+                backgroundColor: AppTheme.navyBlue,
+                icon: const Icon(Icons.add, color: AppTheme.white),
+                label: const Text(
+                  "Create Exam",
+                  style: TextStyle(color: AppTheme.white),
+                ),
+              )
+            : null,
         body: StreamBuilder<QuerySnapshot>(
           stream: _examService.getOfficerExams(user.organizationId),
           builder: (context, snapshot) {
@@ -109,10 +114,11 @@ class _OfficerExamListScreenState extends State<OfficerExamListScreen> {
                 // Fallback
               }
 
-              if (isHistory)
+              if (isHistory) {
                 history.add(exam);
-              else
+              } else {
                 upcoming.add(exam);
+              }
             }
 
             return TabBarView(
@@ -154,8 +160,16 @@ class _OfficerExamListScreenState extends State<OfficerExamListScreen> {
   }
 
   Widget _buildExamCard(ExamModel exam) {
-    Color typeColor = Colors.blue;
-    if (exam.type.contains('B')) typeColor = Colors.orange;
+    // Need user Context or pass user down to check permissions?
+    // Better to pass canManage from build.
+    // Or access Provider here.
+    final user = Provider.of<UserProvider>(context, listen: false).user;
+    final canManage =
+        user != null &&
+        (user.role == 'officer' || user.rank == 'Senior Under Officer');
+
+    Color typeColor = AppTheme.accentBlue;
+    if (exam.type.contains('B')) typeColor = AppTheme.orange;
     if (exam.type.contains('C')) typeColor = Colors.green;
 
     return Card(
@@ -257,10 +271,11 @@ class _OfficerExamListScreenState extends State<OfficerExamListScreen> {
                   style: TextStyle(color: Colors.grey[800], fontSize: 13),
                 ),
                 const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  onPressed: () => _confirmDelete(exam),
-                ),
+                if (canManage)
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    onPressed: () => _confirmDelete(exam),
+                  ),
               ],
             ),
           ],
@@ -285,7 +300,10 @@ class _OfficerExamListScreenState extends State<OfficerExamListScreen> {
               Navigator.pop(ctx);
               await _examService.deleteExam(exam.id);
             },
-            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+            child: const Text(
+              "Delete",
+              style: TextStyle(color: AppTheme.error),
+            ),
           ),
         ],
       ),

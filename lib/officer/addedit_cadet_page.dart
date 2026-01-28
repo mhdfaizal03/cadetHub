@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ncc_cadet/services/auth_service.dart';
+import 'package:ncc_cadet/utils/access_control.dart';
 
 class AddEditCadetPage extends StatefulWidget {
   final Map<String, dynamic>?
@@ -28,11 +29,15 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
   String _selectedStatus = 'Active';
   String _selectedYear = '1st Year';
 
+  List<String> _availableYears = ['1st Year', '2nd Year', '3rd Year'];
+  bool _loadingProfile = true;
+
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
+    _fetchPermissions();
     // Initialize controllers with existing data if editing
     _nameController = TextEditingController(
       text: widget.cadetData?['name'] ?? '',
@@ -75,6 +80,28 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
     super.dispose();
   }
 
+  Future<void> _fetchPermissions() async {
+    final officer = await _authService.getUserProfile();
+    if (officer != null) {
+      final years = getManageableYears(officer);
+      if (years != null && years.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _availableYears = years;
+            // If strictly one year, ensure it's selected
+            // If editing, only change if current selection is invalid?
+            // Actually, UO shouldn't even see other years' cadets to edit.
+            // But if they are adding, we must force the year.
+            if (!_availableYears.contains(_selectedYear)) {
+              _selectedYear = _availableYears.first;
+            }
+          });
+        }
+      }
+    }
+    if (mounted) setState(() => _loadingProfile = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     bool isEditing = widget.cadetData != null;
@@ -96,157 +123,167 @@ class _AddEditCadetPageState extends State<AddEditCadetPage> {
           child: Divider(color: Colors.grey.shade200, height: 1),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Profile Photo Placeholder
-              Center(
-                child: Stack(
+      body: _loadingProfile
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Colors.grey.shade100,
-                      child: Icon(
-                        Icons.person,
-                        size: 50,
-                        color: Colors.grey.shade400,
+                    // Profile Photo Placeholder
+                    Center(
+                      child: Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 50,
+                            backgroundColor: Colors.grey.shade100,
+                            child: Icon(
+                              Icons.person,
+                              size: 50,
+                              color: Colors.grey.shade400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+
+                    _buildSectionLabel("Personal Information"),
+                    const SizedBox(height: 16),
+                    _buildTextField(
+                      label: "Full Name",
+                      controller: _nameController,
+                      hint: "Enter cadet's full name",
+                      icon: Icons.person_outline,
+                    ),
+                    const SizedBox(height: 20),
+                    _buildTextField(
+                      label: "Cadet ID",
+                      controller: _idController,
+                      hint: "e.g. NCC/2023/1001",
+                      icon: Icons.badge_outlined,
+                    ),
+                    const SizedBox(height: 20),
+                    _buildTextField(
+                      label: "Email Address",
+                      controller: _emailController,
+                      hint: "cadet@example.com",
+                      icon: Icons.email_outlined,
+                      inputType: TextInputType.emailAddress,
+                      readOnly:
+                          isEditing, // Changing email is complex (auth sync)
+                    ),
+                    const SizedBox(height: 20),
+                    // Phone
+                    _buildTextField(
+                      label: "Phone Number",
+                      controller: _phoneController,
+                      hint: "+91 XXXXX XXXXX",
+                      icon: Icons.phone_outlined,
+                      inputType: TextInputType.phone,
+                    ),
+                    const SizedBox(height: 20),
+                    // Address
+                    _buildTextField(
+                      label: "Address",
+                      controller: _addressController,
+                      hint: "Enter residential address",
+                      icon: Icons.home_outlined,
+                      maxLines: 2,
+                    ),
+
+                    if (!isEditing) ...[
+                      const SizedBox(height: 20),
+                      _buildTextField(
+                        label: "Password",
+                        controller: _passwordController,
+                        hint: "Create a password",
+                        icon: Icons.lock_outline,
+                        isPassword: true,
+                      ),
+                    ],
+
+                    const SizedBox(height: 30),
+
+                    _buildSectionLabel("Service Details"),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildDropdown(
+                            label: "Year",
+                            value: _selectedYear,
+                            items: _availableYears,
+                            onChanged: (val) =>
+                                setState(() => _selectedYear = val!),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildDropdown(
+                            label: "Rank",
+                            value: _selectedRank,
+                            items: [
+                              'Cadet',
+                              'Lance Corporal',
+                              'Corporal',
+                              'Sergeant',
+                              'Company Quartermaster Sergeant',
+                              'Company Sergeant Major',
+                              'Under Officer',
+                              'Senior Under Officer',
+                            ],
+                            onChanged: (val) =>
+                                setState(() => _selectedRank = val!),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    _buildDropdown(
+                      label: "Account Status",
+                      value: _selectedStatus,
+                      items: ['Active', 'Inactive', 'Pending'],
+                      onChanged: (val) =>
+                          setState(() => _selectedStatus = val!),
+                    ),
+                    const SizedBox(height: 40),
+
+                    // Action Buttons
+                    SizedBox(
+                      width: double.infinity,
+                      height: 55,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _saveCadet,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1D5CFF),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: _isLoading
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
+                            : Text(
+                                isEditing
+                                    ? "Update Cadet Info"
+                                    : "Register Cadet",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 30),
-
-              _buildSectionLabel("Personal Information"),
-              const SizedBox(height: 16),
-              _buildTextField(
-                label: "Full Name",
-                controller: _nameController,
-                hint: "Enter cadet's full name",
-                icon: Icons.person_outline,
-              ),
-              const SizedBox(height: 20),
-              _buildTextField(
-                label: "Cadet ID",
-                controller: _idController,
-                hint: "e.g. NCC/2023/1001",
-                icon: Icons.badge_outlined,
-              ),
-              const SizedBox(height: 20),
-              _buildTextField(
-                label: "Email Address",
-                controller: _emailController,
-                hint: "cadet@example.com",
-                icon: Icons.email_outlined,
-                inputType: TextInputType.emailAddress,
-                readOnly: isEditing, // Changing email is complex (auth sync)
-              ),
-              const SizedBox(height: 20),
-              // Phone
-              _buildTextField(
-                label: "Phone Number",
-                controller: _phoneController,
-                hint: "+91 XXXXX XXXXX",
-                icon: Icons.phone_outlined,
-                inputType: TextInputType.phone,
-              ),
-              const SizedBox(height: 20),
-              // Address
-              _buildTextField(
-                label: "Address",
-                controller: _addressController,
-                hint: "Enter residential address",
-                icon: Icons.home_outlined,
-                maxLines: 2,
-              ),
-
-              if (!isEditing) ...[
-                const SizedBox(height: 20),
-                _buildTextField(
-                  label: "Password",
-                  controller: _passwordController,
-                  hint: "Create a password",
-                  icon: Icons.lock_outline,
-                  isPassword: true,
-                ),
-              ],
-
-              const SizedBox(height: 30),
-
-              _buildSectionLabel("Service Details"),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildDropdown(
-                      label: "Year",
-                      value: _selectedYear,
-                      items: ['1st Year', '2nd Year', '3rd Year'],
-                      onChanged: (val) => setState(() => _selectedYear = val!),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildDropdown(
-                      label: "Rank",
-                      value: _selectedRank,
-                      items: [
-                        'Cadet',
-                        'Lance Corporal',
-                        'Corporal',
-                        'Sergeant',
-                        'Company Quartermaster Sergeant',
-                        'Company Sergeant Major',
-                        'Under Officer',
-                        'Senior Under Officer',
-                      ],
-                      onChanged: (val) => setState(() => _selectedRank = val!),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              _buildDropdown(
-                label: "Account Status",
-                value: _selectedStatus,
-                items: ['Active', 'Inactive', 'Pending'],
-                onChanged: (val) => setState(() => _selectedStatus = val!),
-              ),
-              const SizedBox(height: 40),
-
-              // Action Buttons
-              SizedBox(
-                width: double.infinity,
-                height: 55,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _saveCadet,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1D5CFF),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : Text(
-                          isEditing ? "Update Cadet Info" : "Register Cadet",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 

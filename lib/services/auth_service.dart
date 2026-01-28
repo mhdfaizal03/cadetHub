@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
 import 'package:ncc_cadet/models/user_model.dart';
 import 'package:ncc_cadet/services/notification_service.dart';
 
@@ -32,7 +33,7 @@ class AuthService {
         return getUserData(user.uid);
       }
     } catch (e) {
-      print("Error fetching user profile: $e");
+      debugPrint("Error fetching user profile: $e");
     }
     return null;
   }
@@ -48,7 +49,7 @@ class AuthService {
         return UserModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
       }
     } catch (e) {
-      print("Error fetching user data: $e");
+      debugPrint("Error fetching user data: $e");
     }
     return null;
   }
@@ -64,6 +65,24 @@ class AuthService {
         .where('role', isEqualTo: 'cadet')
         .where('organizationId', isEqualTo: organizationId)
         .where('status', isEqualTo: 0); // 0 for pending
+
+    if (years != null && years.isNotEmpty) {
+      query = query.where('year', whereIn: years);
+    }
+
+    return query.snapshots();
+  }
+
+  // Stream of Processed (Approved/Rejected) cadets
+  Stream<QuerySnapshot> getProcessedCadetsStream(
+    String organizationId, {
+    List<String>? years,
+  }) {
+    Query query = _firestore
+        .collection('users')
+        .where('role', isEqualTo: 'cadet')
+        .where('organizationId', isEqualTo: organizationId)
+        .where('status', whereIn: [1, -1]); // 1: Approved, -1: Rejected
 
     if (years != null && years.isNotEmpty) {
       query = query.where('year', whereIn: years);
@@ -95,7 +114,7 @@ class AuthService {
     try {
       await _firestore.collection('users').doc(uid).update({'status': status});
     } catch (e) {
-      print("Error updating cadet status: $e");
+      debugPrint("Error updating cadet status: $e");
       rethrow;
     }
   }
@@ -105,7 +124,19 @@ class AuthService {
     try {
       await _firestore.collection('users').doc(uid).update(data);
     } catch (e) {
-      print("Error updating user data: $e");
+      debugPrint("Error updating user data: $e");
+      rethrow;
+    }
+  }
+
+  // Update Profile Image
+  Future<void> updateProfileImage(String uid, String imageUrl) async {
+    try {
+      await _firestore.collection('users').doc(uid).update({
+        'profileImageUrl': imageUrl,
+      });
+    } catch (e) {
+      debugPrint("Error updating profile image: $e");
       rethrow;
     }
   }
@@ -167,7 +198,7 @@ class AuthService {
     } on FirebaseAuthException catch (e) {
       return _handleAuthException(e);
     } catch (e) {
-      print("Login Error: $e");
+      debugPrint("Login Error: $e");
       return "An unexpected error occurred: $e";
     }
   }
@@ -283,7 +314,7 @@ class AuthService {
     try {
       await _firestore.collection('users').doc(uid).delete();
     } catch (e) {
-      print("Error deleting user: $e");
+      debugPrint("Error deleting user: $e");
       rethrow;
     }
   }

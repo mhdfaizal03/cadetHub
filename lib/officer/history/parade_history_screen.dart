@@ -2,23 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ncc_cadet/models/parade_model.dart';
 import 'package:ncc_cadet/models/user_model.dart';
-import 'package:ncc_cadet/officer/add_parade.dart';
-import 'package:ncc_cadet/officer/mark_attendance_screen.dart';
 import 'package:ncc_cadet/services/auth_service.dart';
 import 'package:ncc_cadet/services/parade_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
 import 'package:ncc_cadet/utils/access_control.dart';
 import 'package:intl/intl.dart';
-import 'package:ncc_cadet/officer/history/parade_history_screen.dart';
 
-class ParadeListScreen extends StatefulWidget {
-  const ParadeListScreen({super.key});
+class ParadeHistoryScreen extends StatefulWidget {
+  const ParadeHistoryScreen({super.key});
 
   @override
-  State<ParadeListScreen> createState() => _ParadeListScreenState();
+  State<ParadeHistoryScreen> createState() => _ParadeHistoryScreenState();
 }
 
-class _ParadeListScreenState extends State<ParadeListScreen> {
+class _ParadeHistoryScreenState extends State<ParadeHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<UserModel?>(
@@ -40,12 +37,9 @@ class _ParadeListScreenState extends State<ParadeListScreen> {
           );
         }
 
-        // Determine manageable years
         final manageableYears = getManageableYears(officer);
         final bool isRestricted = manageableYears != null;
         final bool singleYearView = isRestricted && manageableYears.length == 1;
-        final bool canManage =
-            officer.role == 'officer' || officer.rank == 'Senior Under Officer';
 
         return DefaultTabController(
           length: singleYearView ? 1 : 4,
@@ -61,23 +55,9 @@ class _ParadeListScreenState extends State<ParadeListScreen> {
                 onPressed: () => Navigator.pop(context),
               ),
               title: const Text(
-                "Manage Parades",
+                "Parade History",
                 style: TextStyle(color: Colors.white),
               ),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.history, color: Colors.white),
-                  tooltip: "Parade History",
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const ParadeHistoryScreen(),
-                      ),
-                    );
-                  },
-                ),
-              ],
               centerTitle: true,
               backgroundColor: AppTheme.navyBlue,
               elevation: 0,
@@ -100,7 +80,6 @@ class _ParadeListScreenState extends State<ParadeListScreen> {
               stream: ParadeService().getParadesStream(officer.organizationId),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  debugPrint("Error fetching parades: ${snapshot.error}");
                   return Center(child: Text("Error: ${snapshot.error}"));
                 }
 
@@ -116,6 +95,12 @@ class _ParadeListScreenState extends State<ParadeListScreen> {
                   return _buildEmptyState();
                 }
 
+                final now = DateTime.now();
+                // Normalize 'now' to start of today effectively if needed,
+                // but strictly 'past' usually means < today's date (ignoring time if parade date is just yyyy-MM-dd)
+                // Assuming parade.date is yyyy-MM-dd.
+                // Let's rely on string comparison or parsing. Parsing is safer.
+
                 final allParades = snapshot.data!.docs
                     .map((doc) {
                       return ParadeModel.fromMap(
@@ -124,78 +109,56 @@ class _ParadeListScreenState extends State<ParadeListScreen> {
                       );
                     })
                     .where((p) {
-                      // 1. Manageable years filter
+                      // 1. Managable years filter
                       if (manageableYears != null &&
                           !manageableYears.contains(p.targetYear)) {
                         return false;
                       }
 
-                      // 2. Upcoming filter: Date >= Today
+                      // 2. History filter: Date < Today
                       try {
                         final pDate = DateTime.parse(p.date);
-                        final normalizePDate = DateTime(
+                        // Check if date is before today (ignoring time component of today for stricter "past")
+                        // Actually, if parade was yesterday, it's history.
+                        // If parade is today, it's arguably "Active/Manage".
+                        final today = DateTime(now.year, now.month, now.day);
+                        final pDateOnly = DateTime(
                           pDate.year,
                           pDate.month,
                           pDate.day,
                         );
-                        final now = DateTime.now();
-                        final today = DateTime(now.year, now.month, now.day);
 
-                        return !normalizePDate.isBefore(
-                          today,
-                        ); // Show today or future
+                        return pDateOnly.isBefore(today);
                       } catch (e) {
-                        return true; // Keep if date invalid just in case
+                        return false;
                       }
                     })
                     .toList();
 
+                // Sort descending for history (newest history first)
+                allParades.sort((a, b) => b.date.compareTo(a.date));
+
                 if (singleYearView) {
-                  return _buildParadeList(
-                    allParades,
-                    manageableYears.first,
-                    canManage,
-                  );
+                  return _buildParadeList(allParades, manageableYears.first);
                 }
 
                 return TabBarView(
                   children: [
-                    _buildParadeList(allParades, "All", canManage),
-                    _buildParadeList(allParades, "1st Year", canManage),
-                    _buildParadeList(allParades, "2nd Year", canManage),
-                    _buildParadeList(allParades, "3rd Year", canManage),
+                    _buildParadeList(allParades, "All"),
+                    _buildParadeList(allParades, "1st Year"),
+                    _buildParadeList(allParades, "2nd Year"),
+                    _buildParadeList(allParades, "3rd Year"),
                   ],
                 );
               },
             ),
-            floatingActionButton: canManage
-                ? FloatingActionButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const AddEditParadeScreen(),
-                        ),
-                      );
-                    },
-                    backgroundColor: AppTheme.accentBlue,
-                    child: const Icon(Icons.add, color: AppTheme.white),
-                  )
-                : null,
           ),
         );
       },
     );
   }
 
-  Widget _buildParadeList(
-    List<ParadeModel> allParades,
-    String year,
-    bool canManage,
-  ) {
-    // strict filtering logic:
-    // If year is "All" -> show everything
-    // Else -> show parades where targetYear matches year
+  Widget _buildParadeList(List<ParadeModel> allParades, String year) {
     final filteredParades = year == "All"
         ? allParades
         : allParades.where((p) => p.targetYear == year).toList();
@@ -205,10 +168,10 @@ class _ParadeListScreenState extends State<ParadeListScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.event_busy, size: 64, color: Colors.grey.shade300),
+            Icon(Icons.history, size: 64, color: Colors.grey.shade300),
             const SizedBox(height: 16),
             Text(
-              "No Parades for $year",
+              "No Past Parades for $year",
               style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
             ),
           ],
@@ -220,7 +183,7 @@ class _ParadeListScreenState extends State<ParadeListScreen> {
       padding: const EdgeInsets.all(16),
       itemCount: filteredParades.length,
       itemBuilder: (context, index) {
-        return _buildParadeCard(context, filteredParades[index], canManage);
+        return _buildParadeCard(context, filteredParades[index]);
       },
     );
   }
@@ -230,10 +193,10 @@ class _ParadeListScreenState extends State<ParadeListScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.event_busy, size: 64, color: Colors.grey.shade300),
+          Icon(Icons.history, size: 64, color: Colors.grey.shade300),
           const SizedBox(height: 16),
           Text(
-            "No Parades Scheduled",
+            "No Parade History",
             style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
           ),
         ],
@@ -241,11 +204,7 @@ class _ParadeListScreenState extends State<ParadeListScreen> {
     );
   }
 
-  Widget _buildParadeCard(
-    BuildContext context,
-    ParadeModel parade,
-    bool canManage,
-  ) {
+  Widget _buildParadeCard(BuildContext context, ParadeModel parade) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -275,6 +234,7 @@ class _ParadeListScreenState extends State<ParadeListScreen> {
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
+                        color: Colors.grey, // Greyed out for history
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -284,14 +244,14 @@ class _ParadeListScreenState extends State<ParadeListScreen> {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
+                        color: Colors.grey.shade200,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         parade.targetYear,
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.blue.shade700,
+                          color: Colors.grey.shade700,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -299,43 +259,6 @@ class _ParadeListScreenState extends State<ParadeListScreen> {
                   ],
                 ),
               ),
-              if (canManage)
-                PopupMenuButton(
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit, size: 16),
-                          SizedBox(width: 8),
-                          Text("Edit"),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete, size: 16, color: Colors.red),
-                          SizedBox(width: 8),
-                          Text("Delete", style: TextStyle(color: Colors.red)),
-                        ],
-                      ),
-                    ),
-                  ],
-                  onSelected: (value) {
-                    if (value == 'edit') {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => AddEditParadeScreen(parade: parade),
-                        ),
-                      );
-                    } else if (value == 'delete') {
-                      _confirmDelete(context, parade);
-                    }
-                  },
-                ),
             ],
           ),
           const Divider(),
@@ -346,74 +269,13 @@ class _ParadeListScreenState extends State<ParadeListScreen> {
               const SizedBox(width: 6),
               Text(
                 "${DateFormat('MMM d, yyyy').format(DateTime.parse(parade.date))} at ${parade.time}",
-                style: const TextStyle(color: Colors.black87, fontSize: 14),
+                style: const TextStyle(color: Colors.grey, fontSize: 14),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(
-                Icons.location_on_outlined,
-                size: 14,
-                color: Colors.grey,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                parade.location,
-                style: const TextStyle(color: Colors.black54, fontSize: 14),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => MarkAttendanceScreen(parade: parade),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.check_circle_outline, size: 18),
-              label: const Text("Mark Attendance"),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.accentBlue,
-                side: const BorderSide(color: AppTheme.accentBlue),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
-  }
-
-  Future<void> _confirmDelete(BuildContext context, ParadeModel parade) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Delete Parade"),
-        content: const Text("Are you sure you want to delete this parade?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text("Cancel"),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text("Delete", style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      await ParadeService().deleteParade(parade.id);
-    }
   }
 }

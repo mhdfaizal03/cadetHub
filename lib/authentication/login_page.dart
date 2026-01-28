@@ -6,7 +6,6 @@ import 'package:ncc_cadet/authentication/cadet_pending_screen.dart';
 import 'package:ncc_cadet/authentication/register_page.dart';
 import 'package:ncc_cadet/authentication/forgot_password_page.dart';
 import 'package:ncc_cadet/services/auth_service.dart';
-import 'package:ncc_cadet/models/user_model.dart';
 import 'package:ncc_cadet/providers/user_provider.dart';
 import 'package:ncc_cadet/role_navigation.dart';
 import 'package:ncc_cadet/utils/theme.dart';

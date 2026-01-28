@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ncc_cadet/models/exam_model.dart';
 import 'package:ncc_cadet/models/exam_result_model.dart';
-import 'package:ncc_cadet/models/user_model.dart';
 import 'package:ncc_cadet/services/auth_service.dart';
 import 'package:ncc_cadet/services/exam_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
@@ -94,10 +93,11 @@ class _MarkExamResultsScreenState extends State<MarkExamResultsScreen> {
         };
       }).toList();
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -131,10 +131,11 @@ class _MarkExamResultsScreenState extends State<MarkExamResultsScreen> {
         Navigator.pop(context);
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text("Error saving: $e")));
+      }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

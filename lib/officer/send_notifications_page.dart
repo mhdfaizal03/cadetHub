@@ -131,7 +131,7 @@ class _SendNotificationPageState extends State<SendNotificationPage> {
               // Target Audience
               _buildLabel("Target Audience"),
               DropdownButtonFormField<String>(
-                value: _targetYear,
+                initialValue: _targetYear,
                 decoration: _inputDecoration("Select Year"),
                 items: ['All', '1st Year', '2nd Year', '3rd Year']
                     .map(
@@ -171,7 +171,7 @@ class _SendNotificationPageState extends State<SendNotificationPage> {
                     color: _isImportant ? AppTheme.navyBlue : Colors.grey,
                   ),
                   value: _isImportant,
-                  activeColor: AppTheme.navyBlue,
+                  activeThumbColor: AppTheme.navyBlue,
                   onChanged: (bool value) {
                     setState(() {
                       _isImportant = value;

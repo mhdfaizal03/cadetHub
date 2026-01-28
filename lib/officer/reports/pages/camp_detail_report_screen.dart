@@ -123,8 +123,9 @@ class _CampDetailReportScreenState extends State<CampDetailReportScreen> {
                   .where('campId', isEqualTo: widget.camp.id)
                   .snapshots(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData)
+                if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
+                }
 
                 final docs = snapshot.data!.docs;
                 final participants = docs

@@ -188,7 +188,7 @@ class _AddEditParadeScreenState extends State<AddEditParadeScreen> {
 
                   _fieldLabel("Target Audience"),
                   DropdownButtonFormField<String>(
-                    value: _targetYear,
+                    initialValue: _targetYear,
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: Colors.white,

@@ -58,8 +58,9 @@ class _ParadeReportViewState extends State<ParadeReportView> {
     return FutureBuilder<UserModel?>(
       future: _authService.getUserProfile(),
       builder: (context, userSnapshot) {
-        if (!userSnapshot.hasData)
+        if (!userSnapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
+        }
         final officer = userSnapshot.data!;
 
         return StreamBuilder<QuerySnapshot>(
@@ -68,16 +69,18 @@ class _ParadeReportViewState extends State<ParadeReportView> {
             years: getManageableYears(officer),
           ),
           builder: (context, cadetSnapshot) {
-            if (!cadetSnapshot.hasData)
+            if (!cadetSnapshot.hasData) {
               return const Center(child: CircularProgressIndicator());
+            }
             final cadets = cadetSnapshot.data!.docs;
 
             return StreamBuilder<QuerySnapshot>(
               stream: _paradeService.getParadesStream(officer.organizationId),
               builder: (context, paradeSnapshot) {
                 // ... rest of stream chain ...
-                if (!paradeSnapshot.hasData)
+                if (!paradeSnapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
+                }
                 final parades = paradeSnapshot.data!.docs;
 
                 return StreamBuilder<QuerySnapshot>(
@@ -86,11 +89,19 @@ class _ParadeReportViewState extends State<ParadeReportView> {
                   ),
                   builder: (context, attSnapshot) {
                     // ...
-                    if (!attSnapshot.hasData)
+                    if (!attSnapshot.hasData) {
                       return const Center(child: CircularProgressIndicator());
+                    }
                     final attendance = attSnapshot.data!.docs;
 
                     // ... existing filter logic ...
+                    // Filter Attendance to only show visible cadets (e.g. for UO restricting to their year)
+                    final visibleCadetIds = cadets.map((c) => c.id).toSet();
+                    final visibleAttendance = attendance.where((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      return visibleCadetIds.contains(data['cadetId']);
+                    }).toList();
+
                     // Filter Parades
                     List<QueryDocumentSnapshot> filteredParades = parades.where(
                       (doc) {
@@ -98,14 +109,16 @@ class _ParadeReportViewState extends State<ParadeReportView> {
                         final dateStr = data['date'] as String;
                         final date = DateTime.parse(dateStr);
                         bool inRange = true;
-                        if (_startDate != null)
+                        if (_startDate != null) {
                           inRange = inRange && !date.isBefore(_startDate!);
-                        if (_endDate != null)
+                        }
+                        if (_endDate != null) {
                           inRange =
                               inRange &&
                               !date.isAfter(
                                 _endDate!.add(const Duration(days: 1)),
                               );
+                        }
                         return inRange;
                       },
                     ).toList();
@@ -159,7 +172,7 @@ class _ParadeReportViewState extends State<ParadeReportView> {
                               onPressed: () async {
                                 await _pdfService.generateParadeListPDF(
                                   parades: filteredParades,
-                                  attendanceRecords: attendance,
+                                  attendanceRecords: visibleAttendance,
                                   title: "Parade Report",
                                   subtitle: _startDate == null
                                       ? "All Parades"
@@ -182,7 +195,7 @@ class _ParadeReportViewState extends State<ParadeReportView> {
                               final pid = pDoc.id;
 
                               // Quick stats
-                              final records = attendance
+                              final records = visibleAttendance
                                   .where(
                                     (d) => (d.data() as Map)['paradeId'] == pid,
                                   )
@@ -253,7 +266,8 @@ class _ParadeReportViewState extends State<ParadeReportView> {
                                         builder: (_) =>
                                             ParadeDetailReportScreen(
                                               paradeDoc: pDoc,
-                                              attendanceRecords: attendance,
+                                              attendanceRecords:
+                                                  visibleAttendance,
                                               allCadets: cadets,
                                             ),
                                       ),

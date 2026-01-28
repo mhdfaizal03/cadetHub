@@ -27,6 +27,13 @@ class OfficerDashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = Provider.of<UserProvider>(context).user;
+    if (user == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    final bool canManage =
+        user.role == 'officer' || user.rank == 'Senior Under Officer';
+    final bool isSergeant = user.rank == 'Sergeant';
 
     return Scaffold(
       backgroundColor: AppTheme.lightGrey,
@@ -50,7 +57,7 @@ class OfficerDashboardScreen extends StatelessWidget {
                               ?.copyWith(color: Colors.grey[700]),
                         ),
                         Text(
-                          user?.name ?? "Officer",
+                          user.name ?? "Officer",
                           style: Theme.of(context).textTheme.headlineSmall
                               ?.copyWith(
                                 fontWeight: FontWeight.bold,
@@ -107,7 +114,7 @@ class OfficerDashboardScreen extends StatelessWidget {
 
               StreamBuilder<QuerySnapshot>(
                 stream: AuthService().getCadetsStream(
-                  user!.organizationId,
+                  user.organizationId,
                   years: getManageableYears(user),
                 ),
                 builder: (context, cadetSnapshot) {
@@ -196,43 +203,44 @@ class OfficerDashboardScreen extends StatelessWidget {
                     const MarkAttendanceSelectionScreen(),
                     0,
                   ),
-                  _buildAction(
-                    context,
-                    user.rank == 'Under Officer'
-                        ? "View Parades"
-                        : "Add/Edit Parade",
-                    Icons.add_circle_outline_outlined,
-                    const ParadeListScreen(),
-                    1,
-                  ),
-                  StreamBuilder<QuerySnapshot>(
-                    stream: AuthService().pendingCadets(
-                      user.organizationId,
-                      years: getManageableYears(user),
+                  if (!isSergeant)
+                    _buildAction(
+                      context,
+                      canManage ? "Add/Edit Parade" : "View Parades",
+                      Icons.add_circle_outline_outlined,
+                      const ParadeListScreen(),
+                      1,
                     ),
-                    builder: (context, snapshot) {
-                      int count = 0;
-                      if (snapshot.hasData) {
-                        count = snapshot.data!.docs.length;
-                      }
-                      return _buildAction(
-                        context,
-                        "Manage Cadets",
-                        Icons.group_outlined,
-                        const ManageCadetsPage(),
-                        2,
-                        badgeCount: count,
-                      );
-                    },
-                  ),
-                  _buildAction(
-                    context,
-                    "Reports",
-                    Icons.list,
-                    const ReportsDashboard(),
-                    3,
-                  ),
-                  if (user.rank != 'Under Officer')
+                  if (!isSergeant)
+                    StreamBuilder<QuerySnapshot>(
+                      stream: AuthService().pendingCadets(
+                        user.organizationId,
+                        years: getManageableYears(user),
+                      ),
+                      builder: (context, snapshot) {
+                        int count = 0;
+                        if (snapshot.hasData) {
+                          count = snapshot.data!.docs.length;
+                        }
+                        return _buildAction(
+                          context,
+                          "Manage Cadets",
+                          Icons.group_outlined,
+                          const ManageCadetsPage(),
+                          2,
+                          badgeCount: count,
+                        );
+                      },
+                    ),
+                  if (!isSergeant)
+                    _buildAction(
+                      context,
+                      "Reports",
+                      Icons.list,
+                      const ReportsDashboard(),
+                      3,
+                    ),
+                  if (canManage)
                     _buildAction(
                       context,
                       "Notifications",
@@ -240,59 +248,63 @@ class OfficerDashboardScreen extends StatelessWidget {
                       const SendNotificationPage(),
                       4,
                     ),
-                  StreamBuilder<QuerySnapshot>(
-                    stream: LeaveService().getPendingLeaves(
-                      user.organizationId,
-                      years: getManageableYears(user),
+                  if (!isSergeant)
+                    StreamBuilder<QuerySnapshot>(
+                      stream: LeaveService().getPendingLeaves(
+                        user.organizationId,
+                        years: getManageableYears(user),
+                      ),
+                      builder: (context, snapshot) {
+                        int count = 0;
+                        if (snapshot.hasData) {
+                          count = snapshot.data!.docs.length;
+                        }
+                        return _buildAction(
+                          context,
+                          "Approve Leave",
+                          Icons.security_outlined,
+                          const ApproveLeavePage(),
+                          5,
+                          badgeCount: count,
+                        );
+                      },
                     ),
-                    builder: (context, snapshot) {
-                      int count = 0;
-                      if (snapshot.hasData) {
-                        count = snapshot.data!.docs.length;
-                      }
-                      return _buildAction(
-                        context,
-                        "Approve Leave",
-                        Icons.security_outlined,
-                        const ApproveLeavePage(),
-                        5,
-                        badgeCount: count,
-                      );
-                    },
-                  ),
-                  _buildAction(
-                    context,
-                    user.rank == 'Under Officer'
-                        ? "View Camps"
-                        : "Manage Camps",
-                    Icons.terrain,
-                    const OfficerCampListScreen(),
-                    6,
-                  ),
-                  StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection(
-                          'complaints',
-                        ) // Assuming ComplaintService accesses this
-                        .where('organizationId', isEqualTo: user.organizationId)
-                        .where('status', isEqualTo: 'Pending')
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      int count = 0;
-                      if (snapshot.hasData) {
-                        count = snapshot.data!.docs.length;
-                      }
-                      return _buildAction(
-                        context,
-                        "Complaints",
-                        Icons.report_problem_outlined,
-                        const OfficerComplaintListScreen(),
-                        7,
-                        badgeCount: count,
-                      );
-                    },
-                  ),
-                  if (user.rank != 'Under Officer')
+                  if (!isSergeant)
+                    _buildAction(
+                      context,
+                      canManage ? "Manage Camps" : "View Camps",
+                      Icons.terrain,
+                      const OfficerCampListScreen(),
+                      6,
+                    ),
+                  if (!isSergeant)
+                    StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection(
+                            'complaints',
+                          ) // Assuming ComplaintService accesses this
+                          .where(
+                            'organizationId',
+                            isEqualTo: user.organizationId,
+                          )
+                          .where('status', isEqualTo: 'Pending')
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        int count = 0;
+                        if (snapshot.hasData) {
+                          count = snapshot.data!.docs.length;
+                        }
+                        return _buildAction(
+                          context,
+                          "Complaints",
+                          Icons.report_problem_outlined,
+                          const OfficerComplaintListScreen(),
+                          7,
+                          badgeCount: count,
+                        );
+                      },
+                    ),
+                  if (canManage)
                     StreamBuilder<QuerySnapshot>(
                       stream: AuthService().pendingCadets(
                         user.organizationId,
@@ -313,15 +325,14 @@ class OfficerDashboardScreen extends StatelessWidget {
                         );
                       },
                     ),
-                  _buildAction(
-                    context,
-                    user.rank == 'Under Officer'
-                        ? "View Exams"
-                        : "Manage Exams",
-                    Icons.assignment_turned_in,
-                    const OfficerExamListScreen(),
-                    9,
-                  ),
+                  if (!isSergeant)
+                    _buildAction(
+                      context,
+                      canManage ? "Manage Exams" : "View Exams",
+                      Icons.assignment_turned_in,
+                      const OfficerExamListScreen(),
+                      9,
+                    ),
                 ],
               ),
             ],

@@ -13,6 +13,7 @@ import 'package:ncc_cadet/services/parade_service.dart';
 import 'package:ncc_cadet/services/camp_service.dart';
 import 'package:ncc_cadet/services/exam_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
+import 'package:ncc_cadet/utils/access_control.dart';
 
 class MarkAttendanceSelectionScreen extends StatefulWidget {
   const MarkAttendanceSelectionScreen({super.key});
@@ -77,9 +78,9 @@ class _MarkAttendanceSelectionScreenState
             elevation: 0,
             bottom: TabBar(
               controller: _tabController,
-              labelColor: AppTheme.gold,
+              labelColor: AppTheme.accentBlue,
               unselectedLabelColor: Colors.white70,
-              indicatorColor: AppTheme.gold,
+              indicatorColor: AppTheme.accentBlue,
               tabs: const [
                 Tab(text: "Parades"),
                 Tab(text: "Camps"),
@@ -179,30 +180,68 @@ class _MarkAttendanceSelectionScreenState
 
   // --- Parades ---
   Widget _buildParadeList(UserModel officer) {
+    // 1. Determine Years to Show
+    final manageableYears = getManageableYears(officer);
+    List<String> yearsToShow = ['1st Year', '2nd Year', '3rd Year'];
+    if (manageableYears != null && manageableYears.isNotEmpty) {
+      yearsToShow = manageableYears;
+    }
+
+    // 2. Hide Tabs if only one year
+    if (yearsToShow.length == 1) {
+      return StreamBuilder<QuerySnapshot>(
+        stream: ParadeService().getParadesStream(officer.organizationId),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final allItems = snapshot.data!.docs
+              .map(
+                (d) =>
+                    ParadeModel.fromMap(d.data() as Map<String, dynamic>, d.id),
+              )
+              .toList();
+
+          // Helper
+          List<ParadeModel> getForYear(String year) {
+            final yearItems = allItems
+                .where((p) => p.targetYear == year || p.targetYear == 'All')
+                .toList();
+            return _filterItems(yearItems, (i) => i.name, (i) => i.date);
+          }
+
+          return _buildParadeListView(
+            getForYear(yearsToShow.first),
+            "No ${yearsToShow.first} parades",
+          );
+        },
+      );
+    }
+
     return DefaultTabController(
-      length: 3,
+      length: yearsToShow.length,
       child: Column(
         children: [
           Container(
             color: Colors.white,
-            child: const TabBar(
+            child: TabBar(
               labelColor: AppTheme.navyBlue,
               unselectedLabelColor: Colors.grey,
               indicatorColor: AppTheme.navyBlue,
               indicatorSize: TabBarIndicatorSize.label,
-              tabs: [
-                Tab(text: "1st Year"),
-                Tab(text: "2nd Year"),
-                Tab(text: "3rd Year"),
-              ],
+              isScrollable:
+                  yearsToShow.length > 3, // Enable scrolling if many items
+              tabs: yearsToShow.map((y) => Tab(text: y)).toList(),
             ),
           ),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: ParadeService().getParadesStream(officer.organizationId),
               builder: (context, snapshot) {
-                if (!snapshot.hasData)
+                if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
+                }
 
                 final allItems = snapshot.data!.docs
                     .map(
@@ -224,20 +263,14 @@ class _MarkAttendanceSelectionScreenState
                 }
 
                 return TabBarView(
-                  children: [
-                    _buildParadeListView(
-                      getForYear('1st Year'),
-                      "No 1st Year parades",
-                    ),
-                    _buildParadeListView(
-                      getForYear('2nd Year'),
-                      "No 2nd Year parades",
-                    ),
-                    _buildParadeListView(
-                      getForYear('3rd Year'),
-                      "No 3rd Year parades",
-                    ),
-                  ],
+                  children: yearsToShow
+                      .map(
+                        (y) => _buildParadeListView(
+                          getForYear(y),
+                          "No $y parades",
+                        ),
+                      )
+                      .toList(),
                 );
               },
             ),
@@ -329,30 +362,66 @@ class _MarkAttendanceSelectionScreenState
 
   // --- Camps ---
   Widget _buildCampList(UserModel officer) {
+    // 1. Determine Years to Show
+    final manageableYears = getManageableYears(officer);
+    List<String> yearsToShow = ['1st Year', '2nd Year', '3rd Year'];
+    if (manageableYears != null && manageableYears.isNotEmpty) {
+      yearsToShow = manageableYears;
+    }
+
+    // 2. Hide Tabs if only one year
+    if (yearsToShow.length == 1) {
+      return StreamBuilder<QuerySnapshot>(
+        stream: CampService().getCamps(officer.organizationId),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final allItems = snapshot.data!.docs
+              .map(
+                (d) =>
+                    CampModel.fromMap(d.data() as Map<String, dynamic>, d.id),
+              )
+              .toList();
+
+          List<CampModel> getForYear(String year) {
+            final yearItems = allItems
+                .where((c) => c.targetYear == year || c.targetYear == 'All')
+                .toList();
+            return _filterItems(yearItems, (i) => i.name, (i) => i.startDate);
+          }
+
+          return _buildCampListView(
+            getForYear(yearsToShow.first),
+            "No ${yearsToShow.first} camps",
+          );
+        },
+      );
+    }
+
     return DefaultTabController(
-      length: 3,
+      length: yearsToShow.length,
       child: Column(
         children: [
           Container(
             color: Colors.white,
-            child: const TabBar(
+            child: TabBar(
               labelColor: AppTheme.navyBlue,
               unselectedLabelColor: Colors.grey,
               indicatorColor: AppTheme.navyBlue,
               indicatorSize: TabBarIndicatorSize.label,
-              tabs: [
-                Tab(text: "1st Year"),
-                Tab(text: "2nd Year"),
-                Tab(text: "3rd Year"),
-              ],
+              isScrollable: yearsToShow.length > 3,
+              tabs: yearsToShow.map((y) => Tab(text: y)).toList(),
             ),
           ),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: CampService().getCamps(officer.organizationId),
               builder: (context, snapshot) {
-                if (!snapshot.hasData)
+                if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
+                }
 
                 final allItems = snapshot.data!.docs
                     .map(
@@ -377,20 +446,11 @@ class _MarkAttendanceSelectionScreenState
                 }
 
                 return TabBarView(
-                  children: [
-                    _buildCampListView(
-                      getForYear('1st Year'),
-                      "No 1st Year camps",
-                    ),
-                    _buildCampListView(
-                      getForYear('2nd Year'),
-                      "No 2nd Year camps",
-                    ),
-                    _buildCampListView(
-                      getForYear('3rd Year'),
-                      "No 3rd Year camps",
-                    ),
-                  ],
+                  children: yearsToShow
+                      .map(
+                        (y) => _buildCampListView(getForYear(y), "No $y camps"),
+                      )
+                      .toList(),
                 );
               },
             ),
@@ -456,29 +516,85 @@ class _MarkAttendanceSelectionScreenState
 
   // --- Exams ---
   Widget _buildExamList(UserModel officer) {
+    // 1. Determine Years to Show
+    final manageableYears = getManageableYears(officer);
+    List<String> yearsToShow = ['1st Year', '2nd Year', '3rd Year'];
+    // For exams, usually only for 2nd and 3rd year (B and C cert), but let's keep it generic.
+    // If strict compliance:
+    // "There is no exam for 1st Year generally" - but codebase had '2nd Year', '3rd Year' hardcoded.
+    // If we just use manageableYears, it might include '1st Year' if UO is 1st Year (unlikely).
+    // Let's stick to intersection of manageableYears and ['2nd Year', '3rd Year'] if we want to mimic previous behavior,
+    // OR just show whatever manageableYears allows.
+    // Given the user request is "Under officer can permit to mark his year students only",
+    // if a 2nd Year UO needs to mark 2nd Year exams, they should see 2nd Year tab.
+    // If 3rd Year UO, they see 3rd Year tab.
+    // Currently logic:
+    // if manageableYears != null, use that.
+
+    if (manageableYears != null && manageableYears.isNotEmpty) {
+      yearsToShow = manageableYears;
+    } else {
+      // Default behavior was 2nd and 3rd year only.
+      // We should preserve that for full access officers?
+      // Previous code had 2 tabs: 2nd and 3rd.
+      if (manageableYears == null) {
+        yearsToShow = ['2nd Year', '3rd Year'];
+      }
+    }
+
+    // 2. Hide Tabs if only one year
+    if (yearsToShow.length == 1) {
+      return StreamBuilder<QuerySnapshot>(
+        stream: ExamService().getOfficerExams(officer.organizationId),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final allItems = snapshot.data!.docs
+              .map(
+                (d) =>
+                    ExamModel.fromMap(d.data() as Map<String, dynamic>, d.id),
+              )
+              .toList();
+
+          List<ExamModel> getForYear(String year) {
+            final yearItems = allItems
+                .where((e) => e.targetYear == year || e.targetYear == 'All')
+                .toList();
+            return _filterItems(yearItems, (i) => i.title, (i) => i.startDate);
+          }
+
+          return _buildExamListView(
+            getForYear(yearsToShow.first),
+            "No ${yearsToShow.first} exams",
+          );
+        },
+      );
+    }
+
     return DefaultTabController(
-      length: 2, // Only 2nd & 3rd Year
+      length: yearsToShow.length,
       child: Column(
         children: [
           Container(
             color: Colors.white,
-            child: const TabBar(
+            child: TabBar(
               labelColor: AppTheme.navyBlue,
               unselectedLabelColor: Colors.grey,
               indicatorColor: AppTheme.navyBlue,
               indicatorSize: TabBarIndicatorSize.label,
-              tabs: [
-                Tab(text: "2nd Year"),
-                Tab(text: "3rd Year"),
-              ],
+              isScrollable: yearsToShow.length > 3,
+              tabs: yearsToShow.map((y) => Tab(text: y)).toList(),
             ),
           ),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: ExamService().getOfficerExams(officer.organizationId),
               builder: (context, snapshot) {
-                if (!snapshot.hasData)
+                if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
+                }
 
                 final allItems = snapshot.data!.docs
                     .map(
@@ -504,16 +620,11 @@ class _MarkAttendanceSelectionScreenState
                 }
 
                 return TabBarView(
-                  children: [
-                    _buildExamListView(
-                      getForYear('2nd Year'),
-                      "No 2nd Year exams",
-                    ),
-                    _buildExamListView(
-                      getForYear('3rd Year'),
-                      "No 3rd Year exams",
-                    ),
-                  ],
+                  children: yearsToShow
+                      .map(
+                        (y) => _buildExamListView(getForYear(y), "No $y exams"),
+                      )
+                      .toList(),
                 );
               },
             ),

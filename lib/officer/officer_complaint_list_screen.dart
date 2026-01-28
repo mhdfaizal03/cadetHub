@@ -47,20 +47,20 @@ class _OfficerComplaintListScreenState
     return Scaffold(
       backgroundColor: AppTheme.lightGrey,
       appBar: AppBar(
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: const IconThemeData(color: AppTheme.white),
         title: const Text(
           "Manage Complaints",
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: AppTheme.white),
         ),
         backgroundColor: AppTheme.navyBlue,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.keyboard_arrow_left, color: Colors.white),
+          icon: const Icon(Icons.keyboard_arrow_left, color: AppTheme.white),
           onPressed: () => Navigator.maybePop(context),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.history, color: Colors.white),
+            icon: const Icon(Icons.history, color: AppTheme.white),
             tooltip: "Complaint History",
             onPressed: () {
               Navigator.push(
@@ -233,7 +233,7 @@ class _OfficerComplaintListScreenState
                                         child: const Text(
                                           "Resolve",
                                           style: TextStyle(
-                                            color: Colors.white,
+                                            color: AppTheme.white,
                                             fontSize: 12,
                                           ),
                                         ),
@@ -283,10 +283,10 @@ class _StatusBadge extends StatelessWidget {
         color = Colors.green;
         break;
       case 'Dismissed':
-        color = Colors.red;
+        color = AppTheme.error;
         break;
       default:
-        color = Colors.orange;
+        color = AppTheme.orange;
     }
 
     return Container(

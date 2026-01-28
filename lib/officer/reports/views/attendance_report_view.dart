@@ -63,8 +63,9 @@ class _AttendanceReportViewState extends State<AttendanceReportView> {
         List<String> yearOptions = ['All', '1st Year', '2nd Year', '3rd Year'];
         if (manageableYears != null) {
           yearOptions = manageableYears;
-          if (!yearOptions.contains(_selectedYear))
+          if (!yearOptions.contains(_selectedYear)) {
             _selectedYear = yearOptions.first;
+          }
         }
 
         return StreamBuilder<QuerySnapshot>(
@@ -73,8 +74,9 @@ class _AttendanceReportViewState extends State<AttendanceReportView> {
             years: manageableYears,
           ),
           builder: (context, cadetSnapshot) {
-            if (!cadetSnapshot.hasData)
+            if (!cadetSnapshot.hasData) {
               return const Center(child: CircularProgressIndicator());
+            }
             final cadets = cadetSnapshot.data!.docs;
 
             return StreamBuilder<QuerySnapshot>(
@@ -82,8 +84,9 @@ class _AttendanceReportViewState extends State<AttendanceReportView> {
                 officer.organizationId,
               ),
               builder: (context, attendanceSnapshot) {
-                if (!attendanceSnapshot.hasData)
+                if (!attendanceSnapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
+                }
                 final attendance = attendanceSnapshot.data!.docs;
 
                 return StreamBuilder<QuerySnapshot>(
@@ -91,8 +94,9 @@ class _AttendanceReportViewState extends State<AttendanceReportView> {
                     officer.organizationId,
                   ),
                   builder: (context, paradeSnapshot) {
-                    if (!paradeSnapshot.hasData)
+                    if (!paradeSnapshot.hasData) {
                       return const Center(child: CircularProgressIndicator());
+                    }
                     final parades = paradeSnapshot.data!.docs;
 
                     return _buildContent(
@@ -132,9 +136,10 @@ class _AttendanceReportViewState extends State<AttendanceReportView> {
       final date = DateTime.parse(dateStr);
       bool inRange = true;
       if (_startDate != null) inRange = inRange && !date.isBefore(_startDate!);
-      if (_endDate != null)
+      if (_endDate != null) {
         inRange =
             inRange && !date.isAfter(_endDate!.add(const Duration(days: 1)));
+      }
       return inRange;
     }).toList();
 
@@ -181,7 +186,7 @@ class _AttendanceReportViewState extends State<AttendanceReportView> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: yearOptions.contains(_selectedYear)
+                        initialValue: yearOptions.contains(_selectedYear)
                             ? _selectedYear
                             : yearOptions.first,
                         decoration: const InputDecoration(

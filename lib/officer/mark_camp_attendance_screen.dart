@@ -239,10 +239,11 @@ class _MarkCampAttendanceScreenState extends State<MarkCampAttendanceScreen> {
   }
 
   Widget _buildCadetList(List<Map<String, dynamic>> cadets) {
-    if (cadets.isEmpty)
+    if (cadets.isEmpty) {
       return const Center(
         child: Text("No cadets found", style: TextStyle(color: Colors.grey)),
       );
+    }
 
     return ListView.separated(
       padding: const EdgeInsets.all(16),

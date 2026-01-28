@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ncc_cadet/utils/theme.dart';
 import 'package:ncc_cadet/utils/access_control.dart';
 import 'package:intl/intl.dart';
+import 'package:ncc_cadet/officer/history/leave_history_screen.dart';
 
 class ApproveLeavePage extends StatefulWidget {
   const ApproveLeavePage({super.key});
@@ -273,6 +274,20 @@ class _ApproveLeavePageState extends State<ApproveLeavePage> {
               backgroundColor: AppTheme.navyBlue,
               elevation: 0,
               iconTheme: const IconThemeData(color: Colors.white),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.history, color: Colors.white),
+                  tooltip: "Leave History",
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const LeaveHistoryScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
               bottom: singleYearView
                   ? null
                   : TabBar(

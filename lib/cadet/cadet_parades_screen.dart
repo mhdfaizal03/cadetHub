@@ -385,8 +385,9 @@ class AttendanceList extends StatelessWidget {
               final isExcused = record.status == "Excused";
 
               Color statusColor = const Color(0xFFE52D27); // Absent - Red
-              if (isPresent)
+              if (isPresent) {
                 statusColor = const Color(0xFF76BA1B); // Present - Green
+              }
               if (isExcused) statusColor = Colors.orange; // Excused - Orange
 
               final dateStr = DateFormat(

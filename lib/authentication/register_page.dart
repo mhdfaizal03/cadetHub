@@ -253,7 +253,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
                       if (_selectedRole == 'cadet') ...[
                         DropdownButtonFormField<String>(
-                          value: _selectedYear,
+                          initialValue: _selectedYear,
                           decoration: const InputDecoration(
                             labelText: "Year of Course",
                             prefixIcon: Icon(Icons.school_outlined),

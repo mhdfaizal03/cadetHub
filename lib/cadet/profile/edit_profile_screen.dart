@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:ncc_cadet/models/user_model.dart';
 import 'package:ncc_cadet/services/auth_service.dart';
+import 'package:ncc_cadet/services/profile_image_service.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:ncc_cadet/utils/theme.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -18,7 +20,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _emailController = TextEditingController(); // Read-only usually
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
+  final ProfileImageService _imageService = ProfileImageService();
   bool _isLoading = false;
+  String? _currentImageUrl;
 
   @override
   void initState() {
@@ -27,6 +31,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _emailController.text = widget.user.email;
     _phoneController.text = widget.user.phone ?? "";
     _addressController.text = widget.user.address ?? "";
+    _currentImageUrl = widget.user.profileImageUrl;
   }
 
   @override
@@ -36,6 +41,71 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _phoneController.dispose();
     _addressController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text("Take Photo"),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text("Choose from Gallery"),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final file = await _imageService.pickImage(source: source);
+      if (file != null) {
+        final url = await _imageService.uploadProfileImage(
+          file,
+          widget.user.uid,
+        );
+        if (url != null) {
+          // Update URL in Auth Service immediately or just UI?
+          // The user expects to see it. We should update Auth too.
+          await AuthService().updateProfileImage(widget.user.uid, url);
+          setState(() {
+            _currentImageUrl = url;
+            _isLoading = false;
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Profile picture updated!")),
+            );
+          }
+        } else {
+          throw "Upload failed";
+        }
+      } else {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
+    }
   }
 
   Future<void> _updateProfile() async {
@@ -100,22 +170,37 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   CircleAvatar(
                     radius: 50,
                     backgroundColor: AppTheme.navyBlue,
-                    child: const CircleAvatar(
+                    child: CircleAvatar(
                       radius: 47,
                       backgroundColor: Colors.white,
-                      child: Icon(Icons.person, size: 50, color: Colors.grey),
+                      backgroundImage:
+                          _currentImageUrl != null &&
+                              _currentImageUrl!.isNotEmpty
+                          ? NetworkImage(_currentImageUrl!)
+                          : null,
+                      child:
+                          _currentImageUrl == null || _currentImageUrl!.isEmpty
+                          ? const Icon(
+                              Icons.person,
+                              size: 50,
+                              color: Colors.grey,
+                            )
+                          : null,
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: AppTheme.gold,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.camera_alt,
-                      size: 16,
-                      color: AppTheme.navyBlue,
+                  GestureDetector(
+                    onTap: _pickAndUploadImage,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: AppTheme.gold,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.camera_alt,
+                        size: 16,
+                        color: AppTheme.navyBlue,
+                      ),
                     ),
                   ),
                 ],

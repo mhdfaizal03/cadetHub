@@ -289,7 +289,7 @@ class _AddEditCampScreenState extends State<AddEditCampScreen> {
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: DropdownButtonFormField<String>(
-        value: _targetYear,
+        initialValue: _targetYear,
         decoration: const InputDecoration(
           labelText: "Target Audience",
           border: InputBorder.none,

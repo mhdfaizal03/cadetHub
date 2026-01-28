@@ -75,7 +75,7 @@ class LeaveService {
       }
     } catch (e) {
       // Ignore notification errors
-      print("Error sending notification: $e");
+      debugPrint("Error sending notification: $e");
     }
   }
 
@@ -100,6 +100,28 @@ class LeaveService {
           debugPrint('Error fetching pending leaves: $e');
           throw e;
         });
+  }
+
+  // Get Processed Leaves (Approved or Rejected)
+  Stream<QuerySnapshot> getProcessedLeaves(
+    String organizationId, {
+    List<String>? years,
+  }) {
+    Query query = _firestore
+        .collection('leaves')
+        .where('organizationId', isEqualTo: organizationId)
+        .where('status', whereIn: ['Approved', 'Rejected']);
+
+    if (years != null && years.isNotEmpty) {
+      query = query.where('cadetYear', whereIn: years);
+    }
+
+    return query.orderBy('createdAt', descending: true).snapshots().handleError(
+      (e) {
+        debugPrint('Error fetching processed leaves: $e');
+        throw e;
+      },
+    );
   }
 
   // Get All Leaves for Organization (for history/reports)

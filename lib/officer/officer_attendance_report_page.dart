@@ -127,8 +127,9 @@ class _OfficerAttendanceReportState extends State<OfficerAttendanceReport> {
               years: manageableYears,
             ),
             builder: (context, cadetSnapshot) {
-              if (!cadetSnapshot.hasData)
+              if (!cadetSnapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
+              }
               final cadets = cadetSnapshot.data!.docs;
 
               return StreamBuilder<QuerySnapshot>(
@@ -136,8 +137,9 @@ class _OfficerAttendanceReportState extends State<OfficerAttendanceReport> {
                   officer.organizationId,
                 ),
                 builder: (context, attendanceSnapshot) {
-                  if (!attendanceSnapshot.hasData)
+                  if (!attendanceSnapshot.hasData) {
                     return const Center(child: CircularProgressIndicator());
+                  }
                   final attendance = attendanceSnapshot.data!.docs;
 
                   return StreamBuilder<QuerySnapshot>(
@@ -145,8 +147,9 @@ class _OfficerAttendanceReportState extends State<OfficerAttendanceReport> {
                       officer.organizationId,
                     ),
                     builder: (context, paradeSnapshot) {
-                      if (!paradeSnapshot.hasData)
+                      if (!paradeSnapshot.hasData) {
                         return const Center(child: CircularProgressIndicator());
+                      }
                       final parades = paradeSnapshot.data!.docs;
 
                       return _buildReportBody(
@@ -199,12 +202,13 @@ class _OfficerAttendanceReportState extends State<OfficerAttendanceReport> {
 
       bool inRange = true;
       if (_startDate != null) inRange = inRange && !date.isBefore(_startDate!);
-      if (_endDate != null)
+      if (_endDate != null) {
         inRange =
             inRange &&
             !date.isAfter(
               _endDate!.add(const Duration(days: 1)),
             ); // Inclusive end
+      }
 
       return inRange;
     }).toList();
@@ -262,7 +266,7 @@ class _OfficerAttendanceReportState extends State<OfficerAttendanceReport> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: yearOptions.contains(_selectedYear)
+                        initialValue: yearOptions.contains(_selectedYear)
                             ? _selectedYear
                             : yearOptions.first,
                         decoration: const InputDecoration(

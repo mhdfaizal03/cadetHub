@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:ncc_cadet/authentication/login_page.dart';
-import 'package:ncc_cadet/models/user_model.dart';
 import 'package:ncc_cadet/cadet/nav_bars/cadet_notification_screen.dart';
 import 'package:ncc_cadet/cadet/profile/edit_profile_screen.dart';
 import 'package:ncc_cadet/cadet/profile/help_support_screen.dart';
 import 'package:ncc_cadet/services/auth_service.dart';
+import 'package:ncc_cadet/services/profile_image_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:ncc_cadet/providers/user_provider.dart';
@@ -13,8 +14,77 @@ import 'package:ncc_cadet/providers/user_provider.dart';
 import 'package:ncc_cadet/common/shimmer_loading.dart';
 import 'package:ncc_cadet/cadet/cadet_documents_screen.dart';
 
-class CadetProfileScreen extends StatelessWidget {
+class CadetProfileScreen extends StatefulWidget {
   const CadetProfileScreen({super.key});
+
+  @override
+  State<CadetProfileScreen> createState() => _CadetProfileScreenState();
+}
+
+class _CadetProfileScreenState extends State<CadetProfileScreen> {
+  final ProfileImageService _imageService = ProfileImageService();
+  final AuthService _authService = AuthService();
+  bool _isUploading = false;
+
+  Future<void> _handleImageUpload(String uid) async {
+    // Show options: Camera or Gallery
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text("Take Photo"),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text("Choose from Gallery"),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    setState(() => _isUploading = true);
+
+    try {
+      final file = await _imageService.pickImage(source: source);
+      if (file != null) {
+        final url = await _imageService.uploadProfileImage(file, uid);
+        if (url != null) {
+          await _authService.updateProfileImage(uid, url);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Profile picture updated!")),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Failed to upload image.")),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,51 +109,10 @@ class CadetProfileScreen extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.grey.shade100),
-                    ),
-                    child: Column(
-                      children: [
-                        const ShimmerLoading.circular(height: 100, width: 100),
-                        const SizedBox(height: 16),
-                        const ShimmerLoading.rectangular(
-                          height: 24,
-                          width: 150,
-                        ),
-                        const SizedBox(height: 8),
-                        const ShimmerLoading.rectangular(
-                          height: 16,
-                          width: 100,
-                        ),
-                        const SizedBox(height: 24),
-                        const Divider(),
-                        const SizedBox(height: 24),
-                        Row(
-                          children: const [
-                            Expanded(
-                              child: ShimmerLoading.rectangular(height: 60),
-                            ),
-                            SizedBox(width: 5),
-                            Expanded(
-                              child: ShimmerLoading.rectangular(height: 60),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        const ShimmerLoading.rectangular(height: 60),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-                  const ShimmerLoading.rectangular(height: 60),
-                  const SizedBox(height: 15),
-                  const ShimmerLoading.rectangular(height: 60),
-                  const SizedBox(height: 15),
-                  const ShimmerLoading.rectangular(height: 60),
+                  // Shimmer Placeholder
+                  const ShimmerLoading.circular(height: 100, width: 100),
+                  const SizedBox(height: 20),
+                  const ShimmerLoading.rectangular(height: 20),
                 ],
               ),
             );
@@ -110,18 +139,54 @@ class CadetProfileScreen extends StatelessWidget {
                   ),
                   child: Column(
                     children: [
-                      CircleAvatar(
-                        radius: 50,
-                        backgroundColor: AppTheme.gold,
-                        child: CircleAvatar(
-                          radius: 47,
-                          backgroundColor: Colors.white,
-                          child: Icon(
-                            Icons.person,
-                            size: 50,
-                            color: AppTheme.navyBlue,
+                      Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 50,
+                            backgroundColor: AppTheme.gold,
+                            child: CircleAvatar(
+                              radius: 47,
+                              backgroundColor: Colors.white,
+                              backgroundImage:
+                                  profile.profileImageUrl != null &&
+                                      profile.profileImageUrl!.isNotEmpty
+                                  ? NetworkImage(profile.profileImageUrl!)
+                                  : null,
+                              child:
+                                  profile.profileImageUrl == null ||
+                                      profile.profileImageUrl!.isEmpty
+                                  ? Icon(
+                                      Icons.person,
+                                      size: 50,
+                                      color: AppTheme.navyBlue,
+                                    )
+                                  : null,
+                            ),
                           ),
-                        ),
+                          if (_isUploading)
+                            const Positioned.fill(
+                              child: CircularProgressIndicator(),
+                            ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: GestureDetector(
+                              onTap: () => _handleImageUpload(profile.uid),
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: const BoxDecoration(
+                                  color: AppTheme.navyBlue,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.camera_alt,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 16),
                       Text(

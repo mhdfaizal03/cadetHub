@@ -73,7 +73,7 @@ class _AddExamPageState extends State<AddExamPage> {
 
               // Target Year Dropdown
               DropdownButtonFormField<String>(
-                value: _targetYear,
+                initialValue: _targetYear,
                 decoration: _inputDecoration("Target Year"),
                 items: const [
                   DropdownMenuItem(value: '2nd Year', child: Text("2nd Year")),
@@ -86,7 +86,7 @@ class _AddExamPageState extends State<AddExamPage> {
 
               // Exam Type
               DropdownButtonFormField<String>(
-                value: _examType,
+                initialValue: _examType,
                 decoration: _inputDecoration("Exam Type"),
                 items: const [
                   DropdownMenuItem(

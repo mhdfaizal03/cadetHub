@@ -27,13 +27,13 @@ class _OfficerNavBarState extends State<OfficerNavBar> {
       bottomNavigationBar: NavigationBarTheme(
         data: NavigationBarThemeData(
           indicatorColor: AppTheme.navyBlue,
-          iconTheme: MaterialStateProperty.resolveWith((states) {
-            if (states.contains(MaterialState.selected)) {
+          iconTheme: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
               return const IconThemeData(color: Colors.white);
             }
             return const IconThemeData(color: Colors.grey);
           }),
-          labelTextStyle: MaterialStateProperty.all(
+          labelTextStyle: WidgetStateProperty.all(
             const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           ),
         ),

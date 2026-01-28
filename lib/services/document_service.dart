@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:file_picker/file_picker.dart';
 
@@ -88,10 +89,10 @@ class DocumentService {
           await _supabase.storage.from('documents').remove([path]);
         }
       } catch (e) {
-        print("Error deleting from storage: $e");
+        debugPrint("Error deleting from storage: $e");
       }
     } catch (e) {
-      throw e;
+      rethrow;
     }
   }
 
@@ -158,7 +159,7 @@ class DocumentService {
           await _supabase.storage.from('documents').remove([oldPath]);
         }
       } catch (e) {
-        print("Error deleting old file: $e");
+        debugPrint("Error deleting old file: $e");
         // Proceed even if old file deletion fails
       }
 
@@ -184,7 +185,7 @@ class DocumentService {
 
       return newUri.toString();
     } catch (e) {
-      print("Error generating download URL: $e");
+      debugPrint("Error generating download URL: $e");
       return fileUrl; // Fallback to original
     }
   }

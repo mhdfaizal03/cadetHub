@@ -9,6 +9,7 @@ import 'package:ncc_cadet/services/camp_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
 import 'package:ncc_cadet/utils/access_control.dart';
 import 'package:intl/intl.dart';
+import 'package:ncc_cadet/officer/history/camp_history_screen.dart';
 
 class OfficerCampListScreen extends StatefulWidget {
   const OfficerCampListScreen({super.key});
@@ -44,7 +45,8 @@ class _OfficerCampListScreenState extends State<OfficerCampListScreen> {
         final manageableYears = getManageableYears(officer);
         final bool isRestricted = manageableYears != null;
         final bool singleYearView = isRestricted && manageableYears.length == 1;
-        final bool canManage = officer.rank != 'Under Officer';
+        final bool canManage =
+            officer.role == 'officer' || officer.rank == 'Senior Under Officer';
 
         return DefaultTabController(
           length: singleYearView ? 1 : 4,
@@ -57,6 +59,20 @@ class _OfficerCampListScreenState extends State<OfficerCampListScreen> {
               ),
               backgroundColor: AppTheme.navyBlue,
               elevation: 0,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.history, color: Colors.white),
+                  tooltip: "Camp History",
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CampHistoryScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
               leading: IconButton(
                 icon: const Icon(
                   Icons.keyboard_arrow_left,
@@ -100,8 +116,27 @@ class _OfficerCampListScreenState extends State<OfficerCampListScreen> {
                       );
                     })
                     .where((camp) {
-                      if (manageableYears == null) return true;
-                      return manageableYears.contains(camp.targetYear);
+                      if (manageableYears != null &&
+                          !manageableYears.contains(camp.targetYear)) {
+                        return false;
+                      }
+
+                      // 2. Upcoming filter: EndDate >= Today
+                      try {
+                        final endDate = DateTime.parse(camp.endDate);
+                        final normalizeEndDate = DateTime(
+                          endDate.year,
+                          endDate.month,
+                          endDate.day,
+                        );
+                        final now = DateTime.now();
+                        final today = DateTime(now.year, now.month, now.day);
+                        return !normalizeEndDate.isBefore(
+                          today,
+                        ); // Show today or future
+                      } catch (e) {
+                        return true;
+                      }
                     })
                     .toList();
 

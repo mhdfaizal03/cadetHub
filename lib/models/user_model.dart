@@ -11,6 +11,7 @@ class UserModel {
 
   final String? phone; // New field
   final String? address; // New field
+  final String? profileImageUrl;
 
   UserModel({
     required this.uid,
@@ -24,6 +25,7 @@ class UserModel {
     this.rank = 'Cadet',
     this.phone,
     this.address,
+    this.profileImageUrl,
   });
 
   // Factory constructor to create a User from Firestore data
@@ -42,6 +44,7 @@ class UserModel {
       rank: data['rank'] ?? 'Cadet',
       phone: data['phone'],
       address: data['address'],
+      profileImageUrl: data['profileImageUrl'],
     );
   }
 
@@ -58,6 +61,7 @@ class UserModel {
       'organizationId': organizationId,
       'phone': phone,
       'address': address,
+      'profileImageUrl': profileImageUrl,
       role == 'officer' ? 'officerId' : 'cadetId': roleId,
     };
   }

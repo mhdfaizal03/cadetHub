@@ -58,7 +58,7 @@ class _OfficerCadetRecordsScreenState extends State<OfficerCadetRecordsScreen> {
           return AlertDialog(
             title: const Text("Select Document Type"),
             content: DropdownButtonFormField<String>(
-              value: selectedType,
+              initialValue: selectedType,
               items: types
                   .map((t) => DropdownMenuItem(value: t, child: Text(t)))
                   .toList(),

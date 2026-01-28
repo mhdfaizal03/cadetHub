@@ -28,23 +28,26 @@ class _ExamReportViewState extends State<ExamReportView> {
     return FutureBuilder<UserModel?>(
       future: _authService.getUserProfile(),
       builder: (context, userSnapshot) {
-        if (!userSnapshot.hasData)
+        if (!userSnapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
+        }
         final officer = userSnapshot.data!;
 
         final manageableYears = getManageableYears(officer);
         List<String> yearOptions = ['All', '1st Year', '2nd Year', '3rd Year'];
         if (manageableYears != null) {
           yearOptions = manageableYears;
-          if (!yearOptions.contains(_selectedYear))
+          if (!yearOptions.contains(_selectedYear)) {
             _selectedYear = yearOptions.first;
+          }
         }
 
         return StreamBuilder<QuerySnapshot>(
           stream: _examService.getOfficerExams(officer.organizationId),
           builder: (context, snapshot) {
-            if (!snapshot.hasData)
+            if (!snapshot.hasData) {
               return const Center(child: CircularProgressIndicator());
+            }
 
             final allExams = snapshot.data!.docs.map((doc) {
               return ExamModel.fromMap(
@@ -69,7 +72,7 @@ class _ExamReportViewState extends State<ExamReportView> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: DropdownButtonFormField<String>(
-                      value: yearOptions.contains(_selectedYear)
+                      initialValue: yearOptions.contains(_selectedYear)
                           ? _selectedYear
                           : yearOptions.first,
                       decoration: const InputDecoration(

@@ -27,7 +27,7 @@ class _CadetNavbarState extends State<CadetNavbar> {
       bottomNavigationBar: NavigationBarTheme(
         data: NavigationBarThemeData(
           indicatorColor: AppTheme.gold,
-          labelTextStyle: MaterialStateProperty.all(
+          labelTextStyle: WidgetStateProperty.all(
             const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           ),
         ),

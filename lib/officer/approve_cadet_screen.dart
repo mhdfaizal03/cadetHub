@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ncc_cadet/services/auth_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
+import 'package:ncc_cadet/officer/history/cadet_approval_history_screen.dart';
 
 class ApproveCadetPage extends StatefulWidget {
   const ApproveCadetPage({super.key});
@@ -25,6 +26,20 @@ class _ApproveCadetPageState extends State<ApproveCadetPage> {
             onPressed: () => Navigator.pop(context),
           ),
           title: const Text("Approve Cadets"),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.history),
+              tooltip: "Approval History",
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const CadetApprovalHistoryScreen(),
+                  ),
+                );
+              },
+            ),
+          ],
           bottom: TabBar(
             labelColor: AppTheme.accentBlue,
             unselectedLabelColor: Colors.grey,

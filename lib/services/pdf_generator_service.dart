@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
@@ -134,11 +133,7 @@ class PdfGeneratorService {
         pw.SizedBox(height: 5),
         pw.Text(
           subtitle,
-          style: pw.TextStyle(
-            font: font,
-            fontSize: 14,
-            color: PdfColors.grey700,
-          ),
+          style: pw.TextStyle(font: font, fontSize: 14, color: PdfColors.grey),
         ),
         pw.Divider(),
       ],
@@ -527,11 +522,7 @@ class PdfGeneratorService {
         pw.Text(value, style: pw.TextStyle(font: boldFont, fontSize: 16)),
         pw.Text(
           label,
-          style: pw.TextStyle(
-            font: font,
-            fontSize: 10,
-            color: PdfColors.grey700,
-          ),
+          style: pw.TextStyle(font: font, fontSize: 10, color: PdfColors.grey),
         ),
       ],
     );
