@@ -14,6 +14,7 @@ import 'package:ncc_cadet/services/camp_service.dart';
 import 'package:ncc_cadet/services/exam_service.dart';
 import 'package:ncc_cadet/utils/theme.dart';
 import 'package:ncc_cadet/utils/access_control.dart';
+import 'package:ncc_cadet/officer/mark_attendance_history_screen.dart';
 
 class MarkAttendanceSelectionScreen extends StatefulWidget {
   const MarkAttendanceSelectionScreen({super.key});
@@ -27,13 +28,20 @@ class _MarkAttendanceSelectionScreenState
     extends State<MarkAttendanceSelectionScreen>
     with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
-  DateTime? _selectedDate;
   late TabController _tabController;
+  late Future<UserModel?> _profileFuture;
+
+  // Cache streams to prevent reloading on setState
+  Stream<QuerySnapshot>? _paradeStream;
+  Stream<QuerySnapshot>? _campStream;
+  Stream<QuerySnapshot>? _examStream;
+  String? _loadedOrgId;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _profileFuture = AuthService().getUserProfile();
   }
 
   @override
@@ -43,10 +51,41 @@ class _MarkAttendanceSelectionScreenState
     super.dispose();
   }
 
+  // --- Robust Date Parser ---
+  DateTime? _robustParse(String? dateStr) {
+    if (dateStr == null || dateStr.trim().isEmpty) return null;
+    final cleanStr = dateStr.trim();
+    try {
+      return DateTime.parse(cleanStr);
+    } catch (_) {}
+    final formats = [
+      'MMM d, yyyy',
+      'd MMM yyyy',
+      'dd/MM/yyyy',
+      'dd-MM-yyyy',
+      'yyyy-MM-dd',
+    ];
+    for (final fmt in formats) {
+      try {
+        return DateFormat(fmt).parse(cleanStr);
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  // Initialize streams once we have the Org ID
+  void _initStreams(String orgId) {
+    if (_loadedOrgId == orgId) return;
+    _loadedOrgId = orgId;
+    _paradeStream = ParadeService().getParadesStream(orgId);
+    _campStream = CampService().getCamps(orgId);
+    _examStream = ExamService().getOfficerExams(orgId);
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<UserModel?>(
-      future: AuthService().getUserProfile(),
+      future: _profileFuture,
       builder: (context, userSnapshot) {
         if (userSnapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
@@ -57,6 +96,9 @@ class _MarkAttendanceSelectionScreenState
           );
         }
         final officer = userSnapshot.data;
+        if (officer != null) {
+          _initStreams(officer.organizationId);
+        }
 
         return Scaffold(
           backgroundColor: AppTheme.lightGrey,
@@ -87,6 +129,20 @@ class _MarkAttendanceSelectionScreenState
                 Tab(text: "Exams"),
               ],
             ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.history, color: Colors.white),
+                tooltip: "Past Events",
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MarkAttendanceHistoryScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
           body: officer == null
               ? const Center(child: Text("Error fetching profile"))
@@ -120,7 +176,6 @@ class _MarkAttendanceSelectionScreenState
                             onChanged: (val) => setState(() {}),
                           ),
                           const SizedBox(height: 12),
-                          Row(children: [Expanded(child: _buildDateFilter())]),
                         ],
                       ),
                     ),
@@ -141,79 +196,70 @@ class _MarkAttendanceSelectionScreenState
     );
   }
 
-  Widget _buildDateFilter() {
-    return InkWell(
-      onTap: _pickDate,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
-            const SizedBox(width: 8),
-            Text(
-              _selectedDate == null
-                  ? "Filter by Date"
-                  : DateFormat('dd MMM yyyy').format(_selectedDate!),
-              style: TextStyle(
-                color: _selectedDate == null
-                    ? Colors.grey.shade600
-                    : Colors.black,
-                fontSize: 14,
-              ),
-            ),
-            const Spacer(),
-            if (_selectedDate != null)
-              GestureDetector(
-                onTap: () => setState(() => _selectedDate = null),
-                child: const Icon(Icons.close, size: 16, color: Colors.grey),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // --- Parades ---
   Widget _buildParadeList(UserModel officer) {
-    // 1. Determine Years to Show
+    if (_paradeStream == null)
+      return const Center(child: CircularProgressIndicator());
+
     final manageableYears = getManageableYears(officer);
     List<String> yearsToShow = ['1st Year', '2nd Year', '3rd Year'];
     if (manageableYears != null && manageableYears.isNotEmpty) {
       yearsToShow = manageableYears;
     }
 
-    // 2. Hide Tabs if only one year
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final searchText = _searchController.text.toLowerCase();
+
+    // Helpers
+    List<ParadeModel> getFilteredItems(List<ParadeModel> allItems) {
+      // Filter Future/Today AND Search Text
+      final filtered = allItems.where((p) {
+        // 1. Search filter
+        if (!p.name.toLowerCase().contains(searchText)) return false;
+
+        // 2. Date filter (Future/Today only)
+        final pDate = _robustParse(p.date);
+        if (pDate == null) return true; // Keep if parse fails (safety)
+        final nDate = DateTime(pDate.year, pDate.month, pDate.day);
+        return !nDate.isBefore(today);
+      }).toList();
+
+      // Sort: Closest date first
+      filtered.sort((a, b) {
+        final da = _robustParse(a.date);
+        final db = _robustParse(b.date);
+        if (da == null && db == null) return 0;
+        if (da == null) return 1;
+        if (db == null) return -1;
+        return da.compareTo(db);
+      });
+      return filtered;
+    }
+
+    List<ParadeModel> getForYear(List<ParadeModel> items, String year) {
+      return items
+          .where((p) => p.targetYear == year || p.targetYear == 'All')
+          .toList();
+    }
+
+    // Single year view optimization
     if (yearsToShow.length == 1) {
       return StreamBuilder<QuerySnapshot>(
-        stream: ParadeService().getParadesStream(officer.organizationId),
+        stream: _paradeStream,
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
+          if (!snapshot.hasData)
             return const Center(child: CircularProgressIndicator());
-          }
-
           final allItems = snapshot.data!.docs
               .map(
                 (d) =>
                     ParadeModel.fromMap(d.data() as Map<String, dynamic>, d.id),
               )
               .toList();
-
-          // Helper
-          List<ParadeModel> getForYear(String year) {
-            final yearItems = allItems
-                .where((p) => p.targetYear == year || p.targetYear == 'All')
-                .toList();
-            return _filterItems(yearItems, (i) => i.name, (i) => i.date);
-          }
-
+          final filtered = getFilteredItems(allItems);
           return _buildParadeListView(
-            getForYear(yearsToShow.first),
-            "No ${yearsToShow.first} parades",
+            getForYear(filtered, yearsToShow.first),
+            "No ${yearsToShow.first} parades found",
           );
         },
       );
@@ -230,19 +276,16 @@ class _MarkAttendanceSelectionScreenState
               unselectedLabelColor: Colors.grey,
               indicatorColor: AppTheme.navyBlue,
               indicatorSize: TabBarIndicatorSize.label,
-              isScrollable:
-                  yearsToShow.length > 3, // Enable scrolling if many items
+              isScrollable: yearsToShow.length > 3,
               tabs: yearsToShow.map((y) => Tab(text: y)).toList(),
             ),
           ),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: ParadeService().getParadesStream(officer.organizationId),
+              stream: _paradeStream,
               builder: (context, snapshot) {
-                if (!snapshot.hasData) {
+                if (!snapshot.hasData)
                   return const Center(child: CircularProgressIndicator());
-                }
-
                 final allItems = snapshot.data!.docs
                     .map(
                       (d) => ParadeModel.fromMap(
@@ -251,23 +294,14 @@ class _MarkAttendanceSelectionScreenState
                       ),
                     )
                     .toList();
-
-                // Helper to filter by year and search
-                List<ParadeModel> getForYear(String year) {
-                  final yearItems = allItems
-                      .where(
-                        (p) => p.targetYear == year || p.targetYear == 'All',
-                      )
-                      .toList();
-                  return _filterItems(yearItems, (i) => i.name, (i) => i.date);
-                }
+                final filtered = getFilteredItems(allItems);
 
                 return TabBarView(
                   children: yearsToShow
                       .map(
                         (y) => _buildParadeListView(
-                          getForYear(y),
-                          "No $y parades",
+                          getForYear(filtered, y),
+                          "No $y parades found",
                         ),
                       )
                       .toList(),
@@ -291,6 +325,11 @@ class _MarkAttendanceSelectionScreenState
   }
 
   Widget _buildParadeCard(BuildContext context, ParadeModel parade) {
+    final parsedDate = _robustParse(parade.date);
+    final dateStr = parsedDate != null
+        ? DateFormat('MMM d, yyyy').format(parsedDate)
+        : parade.date;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 0,
@@ -330,7 +369,7 @@ class _MarkAttendanceSelectionScreenState
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    "${DateFormat('MMM d, yyyy').format(DateTime.parse(parade.date))} at ${parade.time}",
+                    "$dateStr at ${parade.time}",
                     style: const TextStyle(color: Colors.black87, fontSize: 14),
                   ),
                 ],
@@ -362,39 +401,64 @@ class _MarkAttendanceSelectionScreenState
 
   // --- Camps ---
   Widget _buildCampList(UserModel officer) {
-    // 1. Determine Years to Show
+    if (_campStream == null)
+      return const Center(child: CircularProgressIndicator());
+
     final manageableYears = getManageableYears(officer);
     List<String> yearsToShow = ['1st Year', '2nd Year', '3rd Year'];
     if (manageableYears != null && manageableYears.isNotEmpty) {
       yearsToShow = manageableYears;
     }
 
-    // 2. Hide Tabs if only one year
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final searchText = _searchController.text.toLowerCase();
+
+    List<CampModel> getFilteredItems(List<CampModel> allItems) {
+      final filtered = allItems.where((c) {
+        // 1. Search
+        if (!c.name.toLowerCase().contains(searchText)) return false;
+
+        // 2. Active camps (EndDate >= Today)
+        final eDate = _robustParse(c.endDate);
+        if (eDate == null) return true;
+        final nDate = DateTime(eDate.year, eDate.month, eDate.day);
+        return !nDate.isBefore(today);
+      }).toList();
+
+      filtered.sort((a, b) {
+        final da = _robustParse(a.startDate);
+        final db = _robustParse(b.startDate);
+        if (da == null && db == null) return 0;
+        if (da == null) return 1;
+        if (db == null) return -1;
+        return da.compareTo(db);
+      });
+      return filtered;
+    }
+
+    List<CampModel> getForYear(List<CampModel> items, String year) {
+      return items
+          .where((c) => c.targetYear == year || c.targetYear == 'All')
+          .toList();
+    }
+
     if (yearsToShow.length == 1) {
       return StreamBuilder<QuerySnapshot>(
-        stream: CampService().getCamps(officer.organizationId),
+        stream: _campStream,
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
+          if (!snapshot.hasData)
             return const Center(child: CircularProgressIndicator());
-          }
-
           final allItems = snapshot.data!.docs
               .map(
                 (d) =>
                     CampModel.fromMap(d.data() as Map<String, dynamic>, d.id),
               )
               .toList();
-
-          List<CampModel> getForYear(String year) {
-            final yearItems = allItems
-                .where((c) => c.targetYear == year || c.targetYear == 'All')
-                .toList();
-            return _filterItems(yearItems, (i) => i.name, (i) => i.startDate);
-          }
-
+          final filtered = getFilteredItems(allItems);
           return _buildCampListView(
-            getForYear(yearsToShow.first),
-            "No ${yearsToShow.first} camps",
+            getForYear(filtered, yearsToShow.first),
+            "No ${yearsToShow.first} camps found",
           );
         },
       );
@@ -417,12 +481,10 @@ class _MarkAttendanceSelectionScreenState
           ),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: CampService().getCamps(officer.organizationId),
+              stream: _campStream,
               builder: (context, snapshot) {
-                if (!snapshot.hasData) {
+                if (!snapshot.hasData)
                   return const Center(child: CircularProgressIndicator());
-                }
-
                 final allItems = snapshot.data!.docs
                     .map(
                       (d) => CampModel.fromMap(
@@ -431,24 +493,14 @@ class _MarkAttendanceSelectionScreenState
                       ),
                     )
                     .toList();
-
-                List<CampModel> getForYear(String year) {
-                  final yearItems = allItems
-                      .where(
-                        (c) => c.targetYear == year || c.targetYear == 'All',
-                      )
-                      .toList();
-                  return _filterItems(
-                    yearItems,
-                    (i) => i.name,
-                    (i) => i.startDate,
-                  );
-                }
-
+                final filtered = getFilteredItems(allItems);
                 return TabBarView(
                   children: yearsToShow
                       .map(
-                        (y) => _buildCampListView(getForYear(y), "No $y camps"),
+                        (y) => _buildCampListView(
+                          getForYear(filtered, y),
+                          "No $y camps found",
+                        ),
                       )
                       .toList(),
                 );
@@ -516,58 +568,66 @@ class _MarkAttendanceSelectionScreenState
 
   // --- Exams ---
   Widget _buildExamList(UserModel officer) {
-    // 1. Determine Years to Show
+    if (_examStream == null)
+      return const Center(child: CircularProgressIndicator());
+
     final manageableYears = getManageableYears(officer);
     List<String> yearsToShow = ['1st Year', '2nd Year', '3rd Year'];
-    // For exams, usually only for 2nd and 3rd year (B and C cert), but let's keep it generic.
-    // If strict compliance:
-    // "There is no exam for 1st Year generally" - but codebase had '2nd Year', '3rd Year' hardcoded.
-    // If we just use manageableYears, it might include '1st Year' if UO is 1st Year (unlikely).
-    // Let's stick to intersection of manageableYears and ['2nd Year', '3rd Year'] if we want to mimic previous behavior,
-    // OR just show whatever manageableYears allows.
-    // Given the user request is "Under officer can permit to mark his year students only",
-    // if a 2nd Year UO needs to mark 2nd Year exams, they should see 2nd Year tab.
-    // If 3rd Year UO, they see 3rd Year tab.
-    // Currently logic:
-    // if manageableYears != null, use that.
-
     if (manageableYears != null && manageableYears.isNotEmpty) {
       yearsToShow = manageableYears;
-    } else {
-      // Default behavior was 2nd and 3rd year only.
-      // We should preserve that for full access officers?
-      // Previous code had 2 tabs: 2nd and 3rd.
-      if (manageableYears == null) {
-        yearsToShow = ['2nd Year', '3rd Year'];
-      }
+    } else if (manageableYears == null) {
+      yearsToShow = ['2nd Year', '3rd Year'];
     }
 
-    // 2. Hide Tabs if only one year
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final searchText = _searchController.text.toLowerCase();
+
+    List<ExamModel> getFilteredItems(List<ExamModel> allItems) {
+      final filtered = allItems.where((e) {
+        // 1. Search
+        if (!e.title.toLowerCase().contains(searchText)) return false;
+
+        // 2. Future/Today
+        final eDate = _robustParse(e.endDate);
+        if (eDate == null) return true;
+        final nDate = DateTime(eDate.year, eDate.month, eDate.day);
+        return !nDate.isBefore(today);
+      }).toList();
+
+      filtered.sort((a, b) {
+        final da = _robustParse(a.startDate);
+        final db = _robustParse(b.startDate);
+        if (da == null && db == null) return 0;
+        if (da == null) return 1;
+        if (db == null) return -1;
+        return da.compareTo(db);
+      });
+      return filtered;
+    }
+
+    List<ExamModel> getForYear(List<ExamModel> items, String year) {
+      return items
+          .where((e) => e.targetYear == year || e.targetYear == 'All')
+          .toList();
+    }
+
     if (yearsToShow.length == 1) {
       return StreamBuilder<QuerySnapshot>(
-        stream: ExamService().getOfficerExams(officer.organizationId),
+        stream: _examStream,
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
+          if (!snapshot.hasData)
             return const Center(child: CircularProgressIndicator());
-          }
-
           final allItems = snapshot.data!.docs
               .map(
                 (d) =>
                     ExamModel.fromMap(d.data() as Map<String, dynamic>, d.id),
               )
               .toList();
-
-          List<ExamModel> getForYear(String year) {
-            final yearItems = allItems
-                .where((e) => e.targetYear == year || e.targetYear == 'All')
-                .toList();
-            return _filterItems(yearItems, (i) => i.title, (i) => i.startDate);
-          }
-
+          final filtered = getFilteredItems(allItems);
           return _buildExamListView(
-            getForYear(yearsToShow.first),
-            "No ${yearsToShow.first} exams",
+            getForYear(filtered, yearsToShow.first),
+            "No ${yearsToShow.first} exams found",
           );
         },
       );
@@ -590,12 +650,10 @@ class _MarkAttendanceSelectionScreenState
           ),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: ExamService().getOfficerExams(officer.organizationId),
+              stream: _examStream,
               builder: (context, snapshot) {
-                if (!snapshot.hasData) {
+                if (!snapshot.hasData)
                   return const Center(child: CircularProgressIndicator());
-                }
-
                 final allItems = snapshot.data!.docs
                     .map(
                       (d) => ExamModel.fromMap(
@@ -604,25 +662,14 @@ class _MarkAttendanceSelectionScreenState
                       ),
                     )
                     .toList();
-
-                List<ExamModel> getForYear(String year) {
-                  // Exams targetYear might be '2nd Year', '3rd Year', or 'All'
-                  final yearItems = allItems
-                      .where(
-                        (e) => e.targetYear == year || e.targetYear == 'All',
-                      )
-                      .toList();
-                  return _filterItems(
-                    yearItems,
-                    (i) => i.title,
-                    (i) => i.startDate,
-                  );
-                }
-
+                final filtered = getFilteredItems(allItems);
                 return TabBarView(
                   children: yearsToShow
                       .map(
-                        (y) => _buildExamListView(getForYear(y), "No $y exams"),
+                        (y) => _buildExamListView(
+                          getForYear(filtered, y),
+                          "No $y exams found",
+                        ),
                       )
                       .toList(),
                 );
@@ -671,6 +718,7 @@ class _MarkAttendanceSelectionScreenState
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
+                  color: Colors.grey,
                 ),
               ),
               Text(
@@ -680,7 +728,10 @@ class _MarkAttendanceSelectionScreenState
               const SizedBox(height: 8),
               Text(
                 "${exam.startDate} - ${exam.endDate}",
-                style: const TextStyle(fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey,
+                ),
               ),
               const SizedBox(height: 12),
               Row(
@@ -707,63 +758,12 @@ class _MarkAttendanceSelectionScreenState
     );
   }
 
-  // --- Helpers ---
-
-  // Generic Filter
-  List<T> _filterItems<T>(
-    List<T> items,
-    String Function(T) getName,
-    String Function(T) getDateStr,
-  ) {
-    return items.where((item) {
-      final matchesSearch = getName(
-        item,
-      ).toLowerCase().contains(_searchController.text.toLowerCase());
-      bool matchesDate = true;
-      if (_selectedDate != null) {
-        try {
-          final dateStr = getDateStr(item);
-          // Simple string substring match as backup to robust parsing
-          final filterStr = DateFormat('dd-MM-yyyy').format(_selectedDate!);
-          // Try strict or partial
-          matchesDate =
-              dateStr.contains(filterStr) ||
-              dateStr.contains(
-                DateFormat('yyyy-MM-dd').format(_selectedDate!),
-              ) ||
-              dateStr.contains(DateFormat('dd/MM/yyyy').format(_selectedDate!));
-        } catch (e) {
-          matchesDate = false;
-        }
-      }
-      return matchesSearch && matchesDate;
-    }).toList();
-  }
-
-  Future<void> _pickDate() async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(primary: AppTheme.accentBlue),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) setState(() => _selectedDate = picked);
-  }
-
   Widget _buildEmptyState(String msg) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.search_off, size: 48, color: Colors.grey.shade300),
+          Icon(Icons.search, size: 48, color: Colors.grey.shade300),
           const SizedBox(height: 16),
           Text(msg, style: TextStyle(color: Colors.grey.shade500)),
         ],
